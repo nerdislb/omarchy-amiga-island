@@ -680,6 +680,7 @@ var defaultSettings = {
   aiLimits: true,
   barMode: true,
   format: "HH:mm",
+  weekStart: "monday",
   aiProviders: ["claude", "codex", "antigravity"]
 }
 

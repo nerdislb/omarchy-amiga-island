@@ -24,8 +24,13 @@ Item {
   readonly property bool hasCalendars: cal.hasAny
   property bool pickingHolidays: false
 
-  // Monday or Sunday first, whatever the locale says.
-  readonly property int firstWeekday: Qt.locale().firstDayOfWeek % 7
+  // "weekStart": "monday" (default), "sunday", or "locale".
+  readonly property int firstWeekday: {
+    var w = String(island.setting("weekStart", "monday"))
+    if (w === "sunday") return 0
+    if (w === "locale") return Qt.locale().firstDayOfWeek % 7
+    return 1
+  }
   readonly property int leadingBlanks: (new Date(year, monthIndex, 1).getDay() - firstWeekday + 7) % 7
 
   // Back to today whenever it is opened.
