@@ -11,9 +11,12 @@ Item {
   property var island: null
   readonly property bool enabled_: island ? island.setting("guru", true) !== false : true
 
+  property var initializedScopes: ({})
   property var knownUnits: null      // null until the first scan (no alarms for old failures)
   property double sinceMs: Date.now()
   property var seenDumps: ({})
+
+  function quote(value) { return "'" + String(value).replace(/'/g, "'\\''") + "'" }
 
   function scanned(scope, text) {
     var units = String(text || "").split("\n").map(function(l) { return l.trim().split(/\s+/)[0] }).filter(function(u) { return u && u.indexOf(".") > 0 })
@@ -23,13 +26,16 @@ Item {
     for (var i = 0; i < units.length; i++) {
       var key = scope + ":" + units[i]
       next[key] = true
-      if (knownUnits !== null && !prev[key] && island)
+      if (initializedScopes[scope] && !prev[key] && island)
         island.showGuru({ kind: "unit", scope: scope, name: units[i],
                           code: "#8000" + (scope === "user" ? "0004" : "0003") + "." + units[i].replace(/\.service$/, ""),
-                          command: scope === "user" ? "journalctl --user -u " + units[i] + " -n 80 --no-pager; echo; systemctl --user status " + units[i] + " --no-pager"
-                                                    : "journalctl -u " + units[i] + " -n 80 --no-pager; echo; systemctl status " + units[i] + " --no-pager" })
+                          command: scope === "user" ? "journalctl --user -u " + quote(units[i]) + " -n 80 --no-pager; echo; systemctl --user status " + quote(units[i]) + " --no-pager"
+                                                    : "journalctl -u " + quote(units[i]) + " -n 80 --no-pager; echo; systemctl status " + quote(units[i]) + " --no-pager" })
     }
     knownUnits = next
+    var initialized = Object.assign({}, initializedScopes)
+    initialized[scope] = true
+    initializedScopes = initialized
   }
 
   Process {
@@ -58,7 +64,7 @@ Item {
           watch.seenDumps = s
           var exe = String(d.exe || "").split("/").pop() || "?"
           if (watch.island) watch.island.showGuru({ kind: "crash", name: exe, code: "#0000000" + (d.sig || 11) + "." + exe,
-                                                     command: "coredumpctl info " + d.pid + " --no-pager | head -120" })
+                                                     command: "coredumpctl info " + quote(String(d.pid)) + " --no-pager | head -120" })
         }
       }
     }

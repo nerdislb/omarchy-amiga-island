@@ -1646,6 +1646,23 @@ Item {
           }
 
           ViewSlot {
+            active: root.showing("attention")
+            width: root.s(root.slotSize("attention").w); height: root.s(root.slotSize("attention").h)
+            Text {
+              anchors.fill: parent; anchors.margins: root.s(6)
+              textFormat: Text.PlainText
+              text: root.attentionAgent ? (root.attentionAgent.agent || "Agent") + " is waiting" : ""
+              elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter
+              font.family: root.fontFamily; font.pixelSize: root.f(12); color: root.orangeColor
+            }
+          }
+          ViewSlot {
+            active: root.showing("attention-expanded")
+            width: root.s(root.slotSize("attention-expanded").w); height: root.s(root.slotSize("attention-expanded").h)
+            RequesterView { anchors.fill: parent; island: root }
+          }
+
+          ViewSlot {
             active: root.showing("activity")
             width: root.s(root.slotSize("activity").w); height: root.s(root.slotSize("activity").h)
             ActivityCompact { anchors.fill: parent; island: root }

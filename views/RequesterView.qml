@@ -36,7 +36,7 @@ Item {
       color: "transparent"; border.width: 1; border.color: island.accentText
       Rectangle { anchors.centerIn: parent; width: 4; height: 4; color: island.accentText }
     }
-    Text {
+    Text { textFormat: Text.PlainText;
       x: island.s(28); anchors.verticalCenter: parent.verticalCenter
       text: "An agent is waiting for you"
       font.family: view.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : island.fontFamily
@@ -59,21 +59,21 @@ Item {
     width: parent.width - island.s(36)
     spacing: island.s(4)
 
-    Text {
+    Text { textFormat: Text.PlainText;
       width: parent.width
       elide: Text.ElideRight
       text: view.agent ? (view.agent.agent || "Agent") + (view.agent.project ? " · " + view.agent.project : "") : ""
       font.family: island.fontFamily; font.pixelSize: island.f(11)
       color: island.fgDim
     }
-    Text {
+    Text { textFormat: Text.PlainText;
       width: parent.width
       elide: Text.ElideRight
       text: view.agent ? (view.agent.title || "waiting for input") : ""
       font.family: island.textFamily; font.pixelSize: island.f(15); font.bold: true
       color: island.fg
     }
-    Text {
+    Text { textFormat: Text.PlainText;
       text: view.since(view.agent) + (view.others.length ? "  ·  +" + view.others.length + " more" : "")
       font.family: island.fontFamily; font.pixelSize: island.f(11)
       color: island.orangeColor
@@ -103,7 +103,7 @@ Item {
           : Util.alpha(island.fg, mouse.pressed ? 0.2 : mouse.containsMouse ? 0.12 : 0.06)
         border.width: 1
         border.color: modelData.primary ? island.orangeColor : Util.alpha(island.fg, 0.2)
-        Text {
+        Text { textFormat: Text.PlainText;
           anchors.centerIn: parent
           text: btn.modelData.label
           font.family: island.textFamily; font.pixelSize: island.f(12); font.bold: btn.modelData.primary
