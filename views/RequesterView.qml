@@ -14,7 +14,7 @@ Item {
   readonly property var others: island ? island.desktop.blocked.slice(1) : []
   readonly property bool topaz: island ? island.amigaTopaz : false
 
-  FontLoader { id: topazFont; source: Qt.resolvedUrl("../assets/fonts/Topaz_a500_v1.0.ttf") }
+  FontLoader { id: topazFont; source: Qt.resolvedUrl("../assets/fonts/nerdworkbench/NerdWorkbenchUI-Regular.ttf") }
 
   function since(a) {
     if (!a || !island) return ""
@@ -43,7 +43,7 @@ Item {
       font.pixelSize: view.topaz ? 16 : island.f(13)
       font.bold: !view.topaz
       renderType: Text.NativeRendering
-      transform: Scale { origin.x: 0; xScale: view.topaz ? 2 : 1 }
+      transform: Scale { origin.x: 0; xScale: 1 }
       color: island.accentText
     }
     Column {

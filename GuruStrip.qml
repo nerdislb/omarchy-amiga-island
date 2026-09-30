@@ -35,7 +35,7 @@ PanelWindow {
   }
   readonly property bool frameOn: Style.reduceMotion || blinks >= 6 || blinks % 2 === 0
 
-  FontLoader { id: topazFont; source: Qt.resolvedUrl("assets/fonts/Topaz_a500_v1.0.ttf") }
+  FontLoader { id: topazFont; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchUI-Regular.ttf") }
 
   Rectangle {
     id: strip
@@ -56,7 +56,7 @@ PanelWindow {
         font.pixelSize: win.topaz ? 16 : Style.font.title
         font.bold: !win.topaz
         renderType: Text.NativeRendering
-        transform: Scale { origin.x: 0; xScale: win.topaz ? 2 : 1 }
+        transform: Scale { origin.x: 0; xScale: 1 }
         width: win.topaz ? implicitWidth : implicitWidth
         leftPadding: 0
       }
@@ -67,7 +67,7 @@ PanelWindow {
         font.family: win.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : Style.font.family
         font.pixelSize: win.topaz ? 16 : Style.font.body
         renderType: Text.NativeRendering
-        transform: Scale { origin.x: 0; xScale: win.topaz ? 2 : 1 }
+        transform: Scale { origin.x: 0; xScale: 1 }
       }
     }
 
