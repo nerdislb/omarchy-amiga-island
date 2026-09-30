@@ -11,6 +11,7 @@ import qs.Ui as Ui
 import "views"
 import "sources"
 import "IslandModel.js" as Model
+import "bridge" as Bridge
 
 // Theme-native Amiga Island for Omarchy.
 //
@@ -58,6 +59,13 @@ Item {
   readonly property bool reserveSpace: setting("reserveSpace", false) === true
   readonly property string monitorSetting: String(setting("monitor", "primary"))
   readonly property bool expandOnHover: setting("expandOnHover", false) === true
+  // In the bar: with the bar widget mounted, the bar shows the island and
+  // opens it as a native popup; this panel's own strip stays unmapped.
+  readonly property bool barMode: Bridge.IslandBus.widgets > 0 && setting("barMode", true) !== false
+  QtObject {
+    Component.onCompleted: Bridge.IslandBus.island = root
+    Component.onDestruction: if (Bridge.IslandBus.island === root) Bridge.IslandBus.island = null
+  }
   readonly property string clockFormat: String(setting("clockFormat", "HH:mm"))
   readonly property bool showVolume: setting("volume", false) === true
   readonly property bool showBrightness: setting("brightness", false) === true
@@ -1102,7 +1110,8 @@ Item {
   Timer {
     id: collapseTimer
     interval: 500
-    onTriggered: if (!root.hovered && !root.calendarTyping) root.collapse()
+    // In the bar the popup closes the native way (outside click, Esc).
+    onTriggered: if (!root.barMode && !root.hovered && !root.calendarTyping) root.collapse()
   }
 
   Timer {
@@ -1327,6 +1336,7 @@ Item {
     function state(): string {
       return JSON.stringify({
         view: root.view,
+        barMode: root.barMode,
         geometry: { x: island.x, y: island.y, width: island.width, height: island.height,
           exclusiveZone: win.exclusiveZone, corner: root.corner, topMargin: root.topMargin, gapsOut: Style.gapsOut },
         palette: { background: String(root.surface), foreground: String(root.fg), accent: String(root.accentColor) },
@@ -1387,6 +1397,7 @@ Item {
     id: win
 
     screen: root.targetScreen
+    visible: !root.barMode
     anchors { top: true; left: true; right: true }
     // Tall enough for the biggest view (a full inbox or output list); only
     // the island itself takes input, the rest of the strip is click-through.

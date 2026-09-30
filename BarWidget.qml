@@ -1,0 +1,332 @@
+import QtQuick
+import Quickshell
+import qs.Commons
+import qs.Ui
+import Quickshell.Hyprland
+import "views"
+import "IslandModel.js" as Model
+import "bridge" as Bridge
+
+// The island as the bar's clock. At rest it is the time; when something is
+// live (agents, a timer, music, a meeting about to start, a recording) or
+// announces itself (a finished agent, a limit, a track change) a tinted
+// segment grows beside the time. A click opens the island as a native bar
+// popup, the same card, gap, border and dismissal as every other bar popup.
+//
+// The state and sources live in the panel (Island.qml); this widget only
+// draws them. The two meet through Bridge.IslandBus.
+//
+//   left click    open / close the island
+//   right click   the calendar
+//   middle click  play / pause
+BarWidget {
+  id: root
+  moduleName: "nerdibeard.amiga-island"
+
+  readonly property var island: Bridge.IslandBus.island
+  readonly property bool live: island !== null && island.barMode
+
+  // One popup, from the widget that was clicked (or the first one, when the
+  // island is opened over IPC). Matters only with a bar on several monitors.
+  // Opened over IPC or a keybind (no click): the bar on the focused monitor.
+  readonly property string screenName: button.QsWindow.window && button.QsWindow.window.screen
+    ? button.QsWindow.window.screen.name : ""
+  readonly property bool onFocusedScreen: !!Hyprland.focusedMonitor && Hyprland.focusedMonitor.name === screenName
+  readonly property bool popupOwner: Bridge.IslandBus.owner === root
+    || (Bridge.IslandBus.owner === null && Bridge.IslandBus.pick(onFocusedScreen, root))
+
+  Component.onCompleted: Bridge.IslandBus.register(root)
+  Component.onDestruction: Bridge.IslandBus.unregister(root)
+  // A closed popup forgets who opened it, so the next summon follows focus.
+  onOpenedChanged: if (!opened && Bridge.IslandBus.owner === root) Bridge.IslandBus.owner = null
+
+  // ------------------------------------------------------------------
+  // Bar popout contract (Bar.findPanelWidget / requestPopout)
+  // ------------------------------------------------------------------
+  readonly property bool opened: live && island.userExpanded && popupOwner
+  property bool popoutSwitchClosing: false
+
+  function open() {
+    if (!live) return
+    Bridge.IslandBus.owner = root
+    island.expand()
+  }
+  function close() { if (live && island.userExpanded) island.collapse() }
+  function toggle() { opened ? close() : open() }
+  function closeForPopoutSwitch() {
+    popoutSwitchClosing = true
+    close()
+    Qt.callLater(function() { root.popoutSwitchClosing = false })
+  }
+
+  readonly property real openPanelIndicatorWidth: clockLabel.implicitWidth
+  readonly property real openPanelIndicatorHeight: Math.max(Style.space(10), Math.round(Style.bar.iconSlot * 0.55))
+
+  // ------------------------------------------------------------------
+  // What the bar shows
+  // ------------------------------------------------------------------
+  SystemClock {
+    id: clock
+    precision: SystemClock.Minutes
+  }
+
+  readonly property string clockText: Qt.formatDateTime(clock.date, String(setting("format", "HH:mm")))
+
+  function glyphFor(name) {
+    if (!island) return ""
+    if (name === "media") return island.mediaPlaying ? "󰝚" : "󰏤"
+    if (name === "timer") return "󰔛"
+    if (name === "stopwatch") return "󱎫"
+    if (name === "activity") return island.activity ? island.activity.icon : "󰄬"
+    if (name === "recording") return "󰑊"
+    if (name === "calendar") return "󰃭"
+    if (name === "mic") return island.cameraActive ? "󰄀" : "󰍬"
+    if (name === "inbox") return "󰂚"
+    return ""
+  }
+
+  // The live segment: { glyph, text, tone, progress (-1 none) }, or null.
+  readonly property var segment: {
+    if (!live || island.userExpanded) return null
+    var h = island.hud
+    if (h) {
+      if (h.layout === "toast")
+        return { glyph: h.icon || "󰂚", text: (h.title || "") + (h.body ? " · " + h.body : ""), tone: h.color || island.accentColor, progress: -1 }
+      if (h.layout === "track")
+        return { glyph: "󰝚", text: island.mediaTitle + (island.mediaArtist ? " · " + island.mediaArtist : ""), tone: island.mediaTint, progress: -1 }
+      if (h.layout === "progress")
+        return { glyph: h.icon || "", text: h.valueText || "", tone: h.color || island.fg, progress: Model.clamp01(Number(h.value) || 0) }
+      return { glyph: h.icon || "", text: (h.label || "") + (h.valueText ? " " + h.valueText : ""), tone: h.color || island.accentColor, progress: -1 }
+    }
+    var p = island.primary
+    var c = island.clocks
+    if (p === "recording")
+      return { glyph: "󰑊", text: "REC " + Model.formatTime(island.recordingElapsed), tone: island.urgentColor, progress: -1 }
+    if (p === "timer")
+      return { glyph: c.timerPaused ? "󰏤" : "󰔛", text: Model.formatClock(Math.ceil(c.timerLeft / 1000)), tone: island.orangeColor, progress: 1 - c.timerProgress }
+    if (p === "stopwatch")
+      return { glyph: "󱎫", text: Model.formatClock(c.stopwatchElapsed / 1000, false), tone: island.accentColor, progress: -1 }
+    if (p === "activity" && island.activity) {
+      var a = island.activity
+      return { glyph: a.icon, text: a.title + (a.value ? " · " + a.value : ""), tone: island.toneFor(a.color), progress: a.progress }
+    }
+    if (p === "media")
+      return { glyph: glyphFor("media"), text: island.mediaTitle + (island.mediaArtist ? " · " + island.mediaArtist : ""), tone: island.mediaTint,
+               progress: island.mediaLength > 0 ? Model.clamp01(island.mediaPosition / island.mediaLength) : -1 }
+    if (p === "calendar" && island.calendar.next)
+      return { glyph: "󰃭", text: island.calendar.next.title + " · " + island.calendar.countdown, tone: island.accentColor, progress: -1 }
+    if (p === "mic")
+      return { glyph: glyphFor("mic"), text: island.cameraActive ? "Camera" : "Mic", tone: island.cameraActive ? island.greenColor : island.orangeColor, progress: -1 }
+    if (p === "inbox")
+      return { glyph: "󰂚", text: String(island.inbox.length), tone: island.accentColor, progress: -1 }
+    // At rest: the island's glances (agents, next meeting, limits...), if any.
+    if (!island.idleQuiet && island.idleItem)
+      return { glyph: "", text: island.idleItem.text, tone: island.idleItem.color || island.fg, progress: -1, ticker: true }
+    return null
+  }
+  readonly property string secondaryGlyph: live && !island.userExpanded && !island.hud ? glyphFor(island.secondary) : ""
+
+  // Remember the last segment so it can fade out with its content intact.
+  property var shownSegment: null
+  onSegmentChanged: if (segment) shownSegment = segment
+
+  implicitWidth: button.implicitWidth
+  implicitHeight: button.implicitHeight
+
+  WidgetButton {
+    id: button
+    anchors.fill: parent
+    bar: root.bar
+    text: ""
+    hasVisualContent: true
+    horizontalMargin: 8.75
+    fixedWidth: row.width + Style.spaceReal(8.75) * 2
+    active: root.opened
+    useActiveColor: false
+    tooltipText: ""
+
+    onPressed: function(b) {
+      if (!root.live) return
+      if (b === Qt.RightButton) {
+        Bridge.IslandBus.owner = root
+        root.island.openCalendar()
+      } else if (b === Qt.MiddleButton) {
+        if (root.island.hasMedia) root.island.mediaToggle()
+      } else {
+        root.toggle()
+      }
+    }
+
+    Behavior on fixedWidth {
+      NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic }
+    }
+
+    Row {
+      id: row
+      anchors.centerIn: parent
+      spacing: Style.space(8)
+
+      Text {
+        id: clockLabel
+        anchors.verticalCenter: parent.verticalCenter
+        text: root.clockText
+        textFormat: Text.PlainText
+        renderType: Text.NativeRendering
+        font.family: button.fontFamily
+        font.pixelSize: button.fontSize
+        font.features: { "tnum": 1 }
+        color: button.foreground
+      }
+
+      // The live segment: a tinted gadget with its glyph, a line of text and,
+      // when it has one, a progress rule along its lower edge.
+      Rectangle {
+        id: chip
+        readonly property var seg: root.shownSegment
+        readonly property bool showing: root.segment !== null
+        anchors.verticalCenter: parent.verticalCenter
+        height: Math.round(root.barSize - Style.space(8))
+        width: showing ? chipRow.implicitWidth + Style.space(12) : 0
+        visible: width > 1
+        clip: true
+        radius: Math.min(Style.cornerRadius, Style.space(2))
+        color: Util.alpha(seg ? seg.tone : Color.accent, 0.16)
+
+        Behavior on width { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
+        Behavior on color { ColorAnimation { duration: Style.duration(160) } }
+
+        Row {
+          id: chipRow
+          x: Style.space(6)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(5)
+          opacity: chip.showing ? 1 : 0
+          Behavior on opacity { NumberAnimation { duration: Style.duration(120) } }
+
+          Text {
+            visible: text !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            text: chip.seg ? chip.seg.glyph : ""
+            textFormat: Text.PlainText
+            renderType: Text.NativeRendering
+            font.family: button.fontFamily
+            font.pixelSize: button.fontSize
+            color: chip.seg ? chip.seg.tone : button.foreground
+          }
+
+          // Glances flip like the resting island did; everything else is a
+          // plain line, elided so the bar never gets pushed around by a
+          // long title.
+          Flip {
+            visible: !!(chip.seg && chip.seg.ticker)
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(implicitWidth, Style.space(240))
+            height: chip.height
+            text: chip.seg && chip.seg.ticker ? chip.seg.text : ""
+            color: chip.seg ? chip.seg.tone : button.foreground
+            fontFamily: button.fontFamily
+            pixelSize: button.fontSize
+            bold: false
+          }
+
+          Text {
+            visible: !(chip.seg && chip.seg.ticker) && text !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(implicitWidth, Style.space(240))
+            text: chip.seg ? chip.seg.text : ""
+            elide: Text.ElideRight
+            textFormat: Text.PlainText
+            renderType: Text.NativeRendering
+            font.family: button.fontFamily
+            font.pixelSize: button.fontSize
+            font.features: { "tnum": 1 }
+            color: button.foreground
+          }
+
+          Text {
+            visible: root.secondaryGlyph !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.secondaryGlyph
+            textFormat: Text.PlainText
+            renderType: Text.NativeRendering
+            font.family: button.fontFamily
+            font.pixelSize: button.fontSize
+            color: Util.alpha(button.foreground, 0.6)
+          }
+        }
+
+        Rectangle {
+          readonly property real p: chip.seg && chip.seg.progress >= 0 ? chip.seg.progress : -1
+          visible: p >= 0 && chip.showing
+          anchors.bottom: parent.bottom
+          height: Math.max(1, Style.space(2))
+          width: Math.round(parent.width * Math.max(0, p))
+          color: chip.seg ? chip.seg.tone : Color.accent
+          Behavior on width { NumberAnimation { duration: Style.duration(240) } }
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // The opened island: a native bar popup around the island's own views.
+  // ------------------------------------------------------------------
+  readonly property string expandedView: live && island.userExpanded ? island.view : ""
+  property string shownView: "idle-expanded"
+  onExpandedViewChanged: if (expandedView !== "") shownView = expandedView
+  readonly property var viewSize: island ? island.slotSize(shownView) : ({ w: 0, h: 0 })
+
+  KeyboardPanel {
+    id: popup
+    anchorItem: button
+    owner: root
+    bar: root.bar
+    open: root.opened
+    centerOnBar: true
+    padding: 0
+    contentWidth: root.island ? root.island.s(root.viewSize.w) : Style.space(420)
+    contentHeight: root.island ? root.island.s(root.viewSize.h) : Style.space(170)
+
+    focusTarget: keys
+
+    // Esc closes (or first leaves the calendar's link field). Keys the
+    // views do not take bubble up to here.
+    Item {
+      id: keys
+      anchors.fill: parent
+      focus: true
+      Keys.onEscapePressed: function(event) {
+        if (root.live && root.island.calendarAdding) root.island.calendarAdding = false
+        else root.close()
+        event.accepted = true
+      }
+
+    Loader {
+      anchors.fill: parent
+      active: root.live && (popup.open || popup.visible)
+      sourceComponent: {
+        switch (root.shownView) {
+        case "media-expanded": return mediaView
+        case "recording-expanded":
+        case "recording-media-expanded": return recordingView
+        case "inbox-expanded": return inboxView
+        case "clock-expanded": return clockView
+        case "activity-expanded": return activityView
+        case "outputs-expanded": return outputsView
+        case "calendar-expanded": return calendarView
+        default: return idleView
+        }
+      }
+    }
+    }
+  }
+
+  Component { id: idleView; IdleExpanded { island: root.island } }
+  Component { id: mediaView; MediaExpanded { island: root.island } }
+  Component { id: recordingView; RecordingExpanded { island: root.island } }
+  Component { id: inboxView; InboxView { island: root.island } }
+  Component { id: clockView; ClockExpanded { island: root.island } }
+  Component { id: activityView; ActivityExpanded { island: root.island } }
+  Component { id: outputsView; OutputsView { island: root.island } }
+  Component { id: calendarView; CalendarView { island: root.island } }
+}

@@ -2,15 +2,24 @@
   "schemaVersion": 1,
   "id": "nerdibeard.amiga-island",
   "name": "Amiga Island",
-  "version": "1.1.0-local.1",
-  "author": "Nerdibeard \u00b7 based on Arjun010011",
+  "version": "1.2.0-local.1",
+  "author": "Nerdibeard · based on Arjun010011",
   "license": "MIT",
-  "description": "Theme-native activity island wired into this desktop: OmaMail calendar, Flux agents and phone, AI limits. Keeps the existing bar.",
+  "description": "Theme-native activity island in the bar: the clock grows a live segment (agents, timers, media, meetings, limits) and opens a native popup. OmaMail calendar, Flux, AI limits.",
   "kinds": [
-    "panel"
+    "panel",
+    "bar-widget"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "panel": "Island.qml"
+    "panel": "Island.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Amiga Island",
+    "description": "Clock with a live activity segment; click opens the island",
+    "category": "Time",
+    "allowMultiple": false,
+    "defaultSection": "center"
   }
 }

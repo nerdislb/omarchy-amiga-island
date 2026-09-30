@@ -9,6 +9,17 @@ Local theme-native adaptation of [Arjun010011/omarchy-dynamic-island](https://gi
 - Short non-overshooting transitions; no glass blur, cover wash, hardware notch or pill/disc styling.
 - Live colors, font scale and Reduced Motion follow the running Omarchy shell.
 
+## In the bar (1.2)
+
+The plugin is both a `panel` (state and sources) and a `bar-widget`. Put `nerdibeard.amiga-island` in the bar (it replaces the clock; make it `bar.centerAnchor`) and the island lives there:
+
+- At rest the widget is the clock (`format`, default `HH:mm`).
+- Anything live grows a tinted segment beside the time: working agents, timer/stopwatch (with a progress rule), music, a meeting about to start, recording, mic/camera; announcements (agent done, limits, track change, charging) take the segment for a few seconds.
+- Left click opens the island as a **native bar popup** (Omarchy card, border, gap and outside-click/Esc dismissal, and it closes when another bar popup opens). Right click opens the calendar, middle click plays/pauses.
+- The floating strip below the bar is not mapped while a bar widget is mounted. Without the widget in the bar (and with a `plugins[]` entry instead) the old floating island comes back. `barMode: false` forces that.
+
+Settings live in the bar entry: while the plugin is in the bar, the shell reads and writes its entry in `bar.layout`, so keep only that one entry (no second one in `plugins[]`).
+
 ## Desktop integration (1.1)
 
 The island shows what the rest of this desktop already knows instead of keeping its own copy. All links are **read-only**; nothing is written to or sent from them.

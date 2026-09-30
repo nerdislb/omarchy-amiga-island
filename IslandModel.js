@@ -526,7 +526,16 @@ function parseConfig(configText) {
 
 // This plugin's own entry in shell.json's plugins[] array doubles as its
 // settings block, e.g. { "id": "...", "style": "notch" }.
+// In the bar the shell keeps (and writes) the entry in bar.layout, so look
+// there first, in the same order the shell does, then in plugins[].
 function entryFor(cfg, pluginId) {
+  var layout = cfg && cfg.bar && cfg.bar.layout ? cfg.bar.layout : {}
+  var sections = ["left", "center", "right"]
+  for (var s = 0; s < sections.length; s++) {
+    var arr = Array.isArray(layout[sections[s]]) ? layout[sections[s]] : []
+    for (var j = 0; j < arr.length; j++)
+      if (arr[j] && arr[j].id === pluginId) return arr[j]
+  }
   var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
   for (var i = 0; i < list.length; i++)
     if (list[i] && list[i].id === pluginId) return list[i]
@@ -669,6 +678,8 @@ var defaultSettings = {
   agentDone: true,
   phone: true,
   aiLimits: true,
+  barMode: true,
+  format: "HH:mm",
   aiProviders: ["claude", "codex", "antigravity"]
 }
 
