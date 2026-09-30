@@ -284,8 +284,9 @@ BarWidget {
     open: root.opened
     centerOnBar: true
     padding: 0
-    contentWidth: root.island ? root.island.s(root.viewSize.w) : Style.space(420)
-    contentHeight: root.island ? root.island.s(root.viewSize.h) : Style.space(170)
+    // Card size includes the frame (padding is 0); the frame is equal on all sides.
+    contentWidth: (root.island ? root.island.s(root.viewSize.w) : Style.space(420)) + popup.verticalContentInset
+    contentHeight: popup.fittedContentHeight(root.island ? root.island.s(root.viewSize.h) : Style.space(170))
 
     focusTarget: keys
 
