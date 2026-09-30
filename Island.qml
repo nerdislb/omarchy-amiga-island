@@ -82,6 +82,10 @@ Item {
   readonly property int mediaLingerMs: Math.max(0, Number(setting("mediaLingerSeconds", 30))) * 1000
 
   property var disabledPlugins: []
+  // Options of the Amiga Bar plugin, if installed: Amiga effects and font.
+  property var amigaOptions: ({})
+  readonly property bool amigaEffects: amigaOptions.effects === "amiga"
+  readonly property bool amigaTopaz: amigaOptions.font === "topaz"
   property bool configLoaded: false
 
   FileView {
@@ -91,6 +95,7 @@ Item {
     onLoaded: {
       var cfg = Model.parseConfig(text())
       root.settings = Model.entryFor(cfg, root.pluginId)
+      root.amigaOptions = Model.amigaBarOptions(cfg)
       root.disabledPlugins = Array.isArray(cfg.disabledPlugins) ? cfg.disabledPlugins : []
       root.configLoaded = true
     }
@@ -1021,7 +1026,28 @@ Item {
   readonly property bool scriptActivity: activitySource.current !== null
   readonly property bool calendarActivity: setting("calendar", true) !== false && calendarSource.soon
 
+  // An agent waiting for you (herdr "blocked"): the most important thing.
+  readonly property bool attentionActivity: setting("attention", true) !== false && desktop.blocked.length > 0
+  readonly property var attentionAgent: desktop.blocked.length > 0 ? desktop.blocked[0] : null
+
+  // DisplayBeep: the Amiga flashed the screen instead of beeping. The bar
+  // widget flashes the segment twice when this counter moves.
+  property int beepSerial: 0
+  function displayBeep() { beepSerial++ }
+
+  // Guru: a failed service or a crash, shown as a strip under the bar.
+  property var guru: null
+  function showGuru(payload) {
+    guru = payload
+    guruTimer.restart()
+    displayBeep()
+  }
+  Timer { id: guruTimer; interval: 9000; onTriggered: root.guru = null }
+  Failures { island: root }
+  GuruStrip { island: root }
+
   readonly property var activityList: Model.activities({
+    attention: attentionActivity,
     recording: recordingActivity,
     media: mediaActivity,
     mic: micActivity || (setting("camera", true) !== false && cameraActive),
@@ -1295,6 +1321,17 @@ Item {
     }
     function collapse(): string { root.collapse(); return "ok" }
     function toggle(): string { root.toggleExpanded(); return "ok" }
+    function beep(): void { root.displayBeep() }
+    function guruTest(name: string): void {
+      root.showGuru({ kind: "unit", scope: "user", name: name || "demo.service", code: "#80000004." + (name || "demo"),
+                      command: "echo 'Guru-Test: kein echter Ausfall.'" })
+    }
+    function attentionDemo(on: string): void {
+      root.desktop.demoBlocked = on === "on"
+        ? [{ pane: "demo:1", agent: "Codex", status: "blocked", title: "git push origin feat/alpha46 freigeben?", project: "nbtiles", workspace: "demo" }]
+        : []
+      if (on === "on") root.displayBeep()
+    }
     function toast(title: string, body: string, icon: string, color: string): string {
       root.toast({ title: title, body: body, icon: icon, color: color })
       return "ok"
@@ -1354,6 +1391,9 @@ Item {
         stopwatch: root.clocks.stopwatchActive ? Math.round(root.clocks.stopwatchElapsed / 100) / 10 : null,
         activity: root.activity ? root.activity.id : null,
         nextEvent: root.calendar.next ? root.calendar.next.title : null,
+        attention: root.desktop.blocked.map(function(a) { return a.agent + ": " + (a.title || "") }),
+        guru: root.guru,
+        amiga: { effects: root.amigaEffects, topaz: root.amigaTopaz },
         idle: { mode: root.idleMode, quiet: root.idleQuiet, signals: root.idleSignals.map(function(i) { return i.key }) },
         desktop: root.desktop.summary(),
         camera: root.cameraActive,

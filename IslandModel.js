@@ -29,16 +29,19 @@ var sizes = {
   "timer":         { w: 236, h: 32, r: 16 },
   "stopwatch":     { w: 236, h: 32, r: 16 },
   "activity":      { w: 256, h: 32, r: 16 },
+  "attention":     { w: 256, h: 32, r: 16 },
   "calendar":      { w: 300, h: 32, r: 16 },
   "clock-expanded": { w: 380, h: 132, r: 40 },
   "activity-expanded": { w: 392, h: 104, r: 38 },
+  "attention-expanded": { w: 440, h: 176, r: 0 },
   "calendar-expanded": { w: 500, h: 262, r: 40 },
   "notification-actions": { w: 404, h: 118, r: 38 }
 }
 
 // Compact activities in priority order. The first one present owns the pill;
 // the second one, if any, gets the detached bubble on the right.
-var activityOrder = ["recording", "timer", "activity", "media", "stopwatch", "calendar", "mic", "inbox"]
+// "attention" (an agent waiting for you) outranks everything.
+var activityOrder = ["attention", "recording", "timer", "activity", "media", "stopwatch", "calendar", "mic", "inbox"]
 
 function activities(flags) {
   var out = []
@@ -54,6 +57,7 @@ function viewFor(state) {
   if (state.userExpanded && state.inboxOpen) return "inbox-expanded"
   if (state.userExpanded && state.outputsOpen) return "outputs-expanded"
   if (state.userExpanded && state.calendarOpen) return "calendar-expanded"
+  if (state.userExpanded && (state.focus || state.primary) === "attention") return "attention-expanded"
   if (state.userExpanded) {
     // Recording takes the top of an opened island so it can be stopped from
     // there; music, if any, rides along underneath.
@@ -779,4 +783,12 @@ function shortLimit(label) {
   if (/session|5.hour/i.test(l)) return "5h"
   if (/week/i.test(l)) return /fable|opus|sonnet/i.test(l) ? l.replace(/\s*weekly/i, "") + " wk" : "weekly"
   return l
+}
+
+// The Amiga Bar's options (its plugins[] entry): effects and font choice.
+function amigaBarOptions(cfg) {
+  var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
+  for (var i = 0; i < list.length; i++)
+    if (list[i] && list[i].id === "nerdibeard.amiga-bar" && list[i].options) return list[i].options
+  return {}
 }

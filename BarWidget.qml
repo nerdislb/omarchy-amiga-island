@@ -100,6 +100,11 @@ BarWidget {
     }
     var p = island.primary
     var c = island.clocks
+    if (p === "attention" && island.attentionAgent) {
+      var ag = island.attentionAgent, more = island.desktop.blocked.length - 1
+      return { glyph: "\u{f0026}", text: (ag.agent || "Agent") + " wartet" + (more > 0 ? " +" + more : ""),
+               tone: island.orangeColor, progress: -1, guru: true }
+    }
     if (p === "recording")
       return { glyph: "󰑊", text: "REC " + Model.formatTime(island.recordingElapsed), tone: island.urgentColor, progress: -1 }
     if (p === "timer")
@@ -108,6 +113,8 @@ BarWidget {
       return { glyph: "󱎫", text: Model.formatClock(c.stopwatchElapsed / 1000, false), tone: island.accentColor, progress: -1 }
     if (p === "activity" && island.activity) {
       var a = island.activity
+      if (a.id === "agents" && island.amigaEffects)
+        return { glyph: "", text: a.title + (a.value ? " · " + a.value : ""), tone: island.toneFor(a.color), progress: a.progress, boing: true }
       return { glyph: a.icon, text: a.title + (a.value ? " · " + a.value : ""), tone: island.toneFor(a.color), progress: a.progress }
     }
     if (p === "media")
@@ -190,7 +197,26 @@ BarWidget {
         visible: width > 1
         clip: true
         radius: Math.min(Style.cornerRadius, Style.space(2))
-        color: Util.alpha(seg ? seg.tone : Color.accent, 0.16)
+        readonly property bool guru: !!(seg && seg.guru)
+        color: flash ? (seg ? seg.tone : Color.accent) : guru ? "#000000" : Util.alpha(seg ? seg.tone : Color.accent, 0.16)
+        border.width: guru ? Math.max(1, Style.space(2)) : 0
+        border.color: guru && guruFrameOn ? (seg ? seg.tone : Color.accent) : "transparent"
+
+        // Guru frame: blinks three times when it appears, then stays on.
+        property int blinks: 6
+        readonly property bool guruFrameOn: Style.reduceMotion || blinks >= 6 || blinks % 2 === 0
+        onGuruChanged: if (guru) { blinks = 0; guruBlink.restart() }
+        Timer { id: guruBlink; interval: 450; repeat: true; onTriggered: { chip.blinks++; if (chip.blinks >= 6) stop() } }
+
+        // DisplayBeep: two short inversions when the island asks for it.
+        property bool flash: false
+        property int flashes: 0
+        Connections {
+          target: root.island
+          function onBeepSerialChanged() { if (!Style.reduceMotion) { chip.flashes = 0; beep.restart() } }
+        }
+        Timer { id: beep; interval: 110; repeat: true
+          onTriggered: { chip.flash = !chip.flash; chip.flashes++; if (chip.flashes >= 4) { stop(); chip.flash = false } } }
 
         Behavior on width { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
         Behavior on color { ColorAnimation { duration: Style.duration(160) } }
@@ -202,6 +228,23 @@ BarWidget {
           spacing: Style.space(5)
           opacity: chip.showing ? 1 : 0
           Behavior on opacity { NumberAnimation { duration: Style.duration(120) } }
+
+          BoingBall {
+            visible: !!(chip.seg && chip.seg.boing)
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: Style.reduceMotion ? 0 : -bounce
+            size: Math.round(chip.height * 0.62)
+            property real bounce: 0
+            property real phase: 0
+            SequentialAnimation on bounce {
+              running: parent.visible && !Style.reduceMotion
+              loops: Animation.Infinite
+              NumberAnimation { from: 0; to: Style.space(3); duration: 380; easing.type: Easing.OutQuad }
+              NumberAnimation { from: Style.space(3); to: 0; duration: 380; easing.type: Easing.InQuad }
+            }
+            NumberAnimation on phase { running: parent.visible && !Style.reduceMotion; loops: Animation.Infinite; from: 0; to: 2; duration: 1200 }
+            spin: phase
+          }
 
           Text {
             visible: text !== ""
@@ -262,6 +305,15 @@ BarWidget {
           height: Math.max(1, Style.space(2))
           width: Math.round(parent.width * Math.max(0, p))
           color: chip.seg ? chip.seg.tone : Color.accent
+          // Amiga effects: the rule becomes a copper gradient in theme colours.
+          gradient: root.live && root.island.amigaEffects ? copper : null
+          Gradient {
+            id: copper
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: root.island ? root.island.orangeColor : Color.accent }
+            GradientStop { position: 0.5; color: root.island && root.island.themeColors.yellow ? root.island.themeColors.yellow : Color.accent }
+            GradientStop { position: 1.0; color: root.island && root.island.themeColors.cyan ? root.island.themeColors.cyan : Color.accent }
+          }
           Behavior on width { NumberAnimation { duration: Style.duration(240) } }
         }
       }
@@ -313,6 +365,7 @@ BarWidget {
         case "inbox-expanded": return inboxView
         case "clock-expanded": return clockView
         case "activity-expanded": return activityView
+        case "attention-expanded": return requesterView
         case "outputs-expanded": return outputsView
         case "calendar-expanded": return calendarView
         default: return idleView
@@ -328,6 +381,7 @@ BarWidget {
   Component { id: inboxView; InboxView { island: root.island } }
   Component { id: clockView; ClockExpanded { island: root.island } }
   Component { id: activityView; ActivityExpanded { island: root.island } }
+  Component { id: requesterView; RequesterView { island: root.island } }
   Component { id: outputsView; OutputsView { island: root.island } }
   Component { id: calendarView; CalendarView { island: root.island } }
 }

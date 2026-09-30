@@ -84,6 +84,31 @@ Item {
     return agentsEnabled && h && h.running && Array.isArray(h.agents) ? h.agents : []
   }
   readonly property var working: agents.filter(function(a) { return a && a.status === "working" })
+  // Agents waiting for input or approval (herdr "blocked"), minus the ones
+  // snoozed from the requester ("Später", 10 minutes).
+  property var snoozed: ({})     // pane -> until (ms)
+  // IPC demo ("attentionDemo on"): a fake waiting agent for testing the UI.
+  property var demoBlocked: []
+  property double clock: Date.now()
+  Timer { interval: 30000; running: Object.keys(desk.snoozed).length > 0; repeat: true; onTriggered: desk.clock = Date.now() }
+  readonly property var blocked: {
+    clock
+    return demoBlocked.concat(agents.filter(function(a) { return a && a.status === "blocked" && !(desk.snoozed[a.pane] > Date.now()) }))
+  }
+  function snooze(pane) {
+    var s = {}
+    for (var k in snoozed) if (snoozed[k] > Date.now()) s[k] = snoozed[k]
+    s[String(pane)] = Date.now() + 10 * 60000
+    snoozed = s
+  }
+  // Bring the waiting agent to the front: herdr panes by id; OpenClaw
+  // sessions (pane "oc:…") in the OpenClaw Control UI.
+  function focusAgent(a) {
+    if (!a || !island) return
+    var pane = String(a.pane || "")
+    if (pane.indexOf("oc:") === 0) Quickshell.execDetached(["xdg-open", "http://127.0.0.1:18789/"])
+    else Quickshell.execDetached(["herdr", "agent", "focus", pane])
+  }
 
   // pane -> { status, since, title, agent }
   property var seen: ({})
@@ -98,6 +123,7 @@ Item {
       var before = seen[a.pane]
       var since = before && before.status === a.status ? before.since : now
       next[a.pane] = { status: a.status, since: since, title: a.title || "", agent: a.agent || "" }
+      if (primed && a.status === "blocked" && (!before || before.status !== "blocked") && island) island.displayBeep()
       // A run that finished after a real stretch of work (not a flicker).
       if (primed && agentDoneEnabled && before && before.status === "working" && a.status === "idle"
           && now - before.since >= 20000 && island)
