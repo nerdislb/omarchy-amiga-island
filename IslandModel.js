@@ -755,6 +755,13 @@ function omamailEvents(text, now) {
 
 // Omarchy agent usage files (~/.local/state/omarchy/agents/usage/<id>.json):
 // { id, limits: [{ label, percent (0..1), resetsAt }] } -> flat list.
+// A limit whose reset time has passed is back at 0 %: records only change
+// when a collector runs, so an old 100 % may linger long after the reset.
+function limitPercent(limit, nowMs) {
+  var resets = Date.parse(String(limit && limit.resetsAt || ""))
+  return resets > 0 && resets <= (nowMs || Date.now()) ? 0 : limit.percent
+}
+
 function usageLimits(text, fallbackId) {
   var d
   try { d = JSON.parse(String(text || "{}")) } catch (e) { return [] }
@@ -765,8 +772,10 @@ function usageLimits(text, fallbackId) {
     var l = list[i]
     var pct = Number(l && l.percent)
     if (!isFinite(pct)) continue
-    out.push({ key: id + ":" + String(l.label || i), provider: id, label: String(l.title || l.label || ""),
-               percent: Math.max(0, pct), resetsAt: String(l.resetsAt || "") })
+    var entry = { key: id + ":" + String(l.label || i), provider: id, label: String(l.title || l.label || ""),
+                  percent: Math.max(0, pct), resetsAt: String(l.resetsAt || "") }
+    entry.percent = limitPercent(entry)
+    out.push(entry)
   }
   return out
 }

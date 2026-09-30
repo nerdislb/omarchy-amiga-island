@@ -233,13 +233,18 @@ Item {
   }
 
   // The tightest limit across providers (null when nothing is tracked).
+  // Limits reset by the clock too, not only when a record changes.
+  property double now: Date.now()
+  Timer { interval: 30000; running: desk.limitsEnabled; repeat: true; onTriggered: desk.now = Date.now() }
   readonly property var topLimit: {
     if (!limitsEnabled) return null
     var best = null
     for (var n = 0; n < providers.length; n++) {
       var list = usage[providers[n]] || []
-      for (var i = 0; i < list.length; i++)
-        if (!best || list[i].percent > best.percent) best = list[i]
+      for (var i = 0; i < list.length; i++) {
+        var l = Object.assign({}, list[i], { percent: Model.limitPercent(list[i], now) })
+        if (!best || l.percent > best.percent) best = l
+      }
     }
     return best
   }
