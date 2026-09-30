@@ -1,6 +1,7 @@
 import QtQuick
+import qs.Commons
 
-// Status HUD in the iOS "Charging ····· 80% ▮" shape: a label on the leading
+// Compact status HUD with the "Charging ····· 80% ▮" shape: a label on the leading
 // edge, a value and glyph on the trailing edge, both in the event's color.
 Item {
   id: view

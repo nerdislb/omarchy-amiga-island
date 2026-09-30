@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 import "../IslandModel.js" as Model
 
 // Screen recording, compact: a pulsing record dot and the running time.

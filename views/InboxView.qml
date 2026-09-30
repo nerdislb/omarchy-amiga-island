@@ -51,10 +51,10 @@ Item {
       required property var modelData
       width: ListView.view.width
       height: view.rowHeight
-      radius: island.s(18)
+      radius: Math.min(Style.cornerRadius, Style.space(2))
       color: Util.alpha(island.fg, rowMouse.containsMouse ? 0.1 : 0.05)
 
-      Behavior on color { ColorAnimation { duration: 120 } }
+      Behavior on color { ColorAnimation { duration: Style.duration(120) } }
 
       MouseArea {
         id: rowMouse
@@ -71,7 +71,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: island.s(36)
         height: width
-        radius: Math.round(width * 0.28)
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         source: island.notificationIcon(row.modelData)
         placeholder: row.modelData.glyph ? row.modelData.glyph : "󰂚"
         tint: row.modelData.critical ? island.urgentColor : island.accentColor
@@ -86,7 +86,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: island.s(24)
         height: width
-        radius: width / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.fg, closeMouse.pressed ? 0.24 : (closeMouse.containsMouse ? 0.16 : 0.08))
 
         Text {
@@ -163,11 +163,9 @@ Item {
     anchors.bottomMargin: view.pad
     height: island.s(30)
     width: clearLabel.implicitWidth + island.s(32)
-    radius: height / 2
+    radius: Math.min(Style.cornerRadius, Style.space(2))
     color: Util.alpha(island.fg, clearMouse.pressed ? 0.22 : (clearMouse.containsMouse ? 0.15 : 0.08))
-    scale: clearMouse.pressed ? 0.95 : 1
 
-    Behavior on scale { NumberAnimation { duration: 120 } }
 
     Text {
       id: clearLabel

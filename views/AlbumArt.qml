@@ -14,7 +14,7 @@ Item {
   property string source: ""
   property color tint: Color.accent
   property string fontFamily: Style.font.family
-  property real radius: Math.round(width * 0.24)
+  property real radius: Math.min(Style.cornerRadius, Style.space(2))
   property string placeholder: "󰝚"
 
   // App icons from the icon theme have their own shape (and transparency),

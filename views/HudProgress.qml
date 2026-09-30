@@ -48,16 +48,16 @@ Item {
     anchors.rightMargin: island.s(10)
     anchors.verticalCenter: parent.verticalCenter
     height: island.s(5)
-    radius: height / 2
+    radius: Math.min(Style.cornerRadius, Style.space(2))
     color: Util.alpha(island.fg, 0.16)
 
     Rectangle {
       height: parent.height
-      radius: height / 2
+      radius: Math.min(Style.cornerRadius, Style.space(2))
       width: Math.max(view.value > 0 ? height : 0, parent.width * view.value)
       color: view.hud.color || island.fg
 
-      Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+      Behavior on width { NumberAnimation { duration: Style.duration(160); easing.type: Easing.OutCubic } }
     }
   }
 }

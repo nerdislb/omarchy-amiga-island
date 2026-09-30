@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Effects
-import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -9,11 +7,12 @@ import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import qs.Commons
+import qs.Ui as Ui
 import "views"
 import "sources"
 import "IslandModel.js" as Model
 
-// Dynamic Island for Omarchy.
+// Theme-native Amiga Island for Omarchy.
 //
 // A keep-loaded panel plugin: the shell mounts it at startup and it draws its
 // own layer-shell strip across the top of one monitor. Only the island (and
@@ -21,14 +20,14 @@ import "IslandModel.js" as Model
 //
 // Data flows one way: live sources (MPRIS, PipeWire, UPower, backlight,
 // gpu-screen-recorder) feed plain properties on this root, those resolve to a
-// single `view` name, and the shape springs to that view's size while the
+// single `view` name, and the frame moves to that view's size while the
 // matching content fades in.
 Item {
   id: root
 
   property var shell: null
   property var manifest: null
-  readonly property string pluginId: manifest && manifest.id ? manifest.id : "omarchy-dynamic-island"
+  readonly property string pluginId: manifest && manifest.id ? manifest.id : "nerdibeard.amiga-island"
 
   // ------------------------------------------------------------------
   // Settings: this plugin's entry in ~/.config/omarchy/shell.json plugins[]
@@ -40,33 +39,26 @@ Item {
     return v === undefined || v === null ? fallback : v
   }
 
-  readonly property bool notch: setting("style", "notch") !== "island"
-  readonly property bool blackBackground: setting("background", "theme") === "black"
+  readonly property bool notch: false // No hardware-notch styling in this local variant.
   readonly property bool idleHidden: setting("idle", "pill") === "hidden"
   readonly property real scaleFactor: Math.max(0.6, Math.min(2, Number(setting("scale", 1)) || 1))
-  readonly property int topMargin: notch ? 0 : s(Number(setting("topMargin", 6)))
-  readonly property bool reserveSpace: setting("reserveSpace", true) !== false
+  readonly property int topMargin: s(Number(setting("topMargin", 6)))
+  readonly property bool reserveSpace: setting("reserveSpace", false) === true
   readonly property string monitorSetting: String(setting("monitor", "primary"))
   readonly property bool expandOnHover: setting("expandOnHover", false) === true
-  readonly property string clockFormat: String(setting("clockFormat", "h:mm AP"))
-  readonly property bool showVolume: setting("volume", true) !== false
-  readonly property bool showBrightness: setting("brightness", true) !== false
+  readonly property string clockFormat: String(setting("clockFormat", "HH:mm"))
+  readonly property bool showVolume: setting("volume", false) === true
+  readonly property bool showBrightness: setting("brightness", false) === true
   readonly property bool showCharging: setting("charging", true) !== false
   readonly property bool showTrackChange: setting("trackChange", true) !== false
   readonly property bool showRecording: setting("recording", true) !== false
   readonly property bool showMic: setting("mic", true) !== false
-  // Match a real display cutout (MacBook notch): its size in pixels.
-  readonly property var notchSize: ({
-    w: Math.max(0, Number(setting("notchWidth", 0)) || 0),
-    h: Math.max(0, Number(setting("notchHeight", 0)) || 0),
-    r: Math.max(0, Number(setting("notchRadius", 0)) || 0)
-  })
+  readonly property var notchSize: null
   readonly property string idleFace: {
     var f = String(setting("idleFace", "ticker"))
-    return ["ticker", "clock", "lens", "none"].indexOf(f) !== -1 ? f : "ticker"
+    return ["ticker", "clock", "none"].indexOf(f) !== -1 ? f : "ticker"
   }
   readonly property bool artworkTint: setting("visualizerColor", "accent") === "artwork"
-  readonly property bool glowEnabled: setting("glow", false) === true
   readonly property int mediaLingerMs: Math.max(0, Number(setting("mediaLingerSeconds", 30))) * 1000
 
   property var disabledPlugins: []
@@ -106,29 +98,26 @@ Item {
     function onAccentChanged() { themeColorsFile.reload() }
   }
 
-  readonly property color surface: blackBackground ? "#000000" : Color.background
-  readonly property color fg: blackBackground ? "#f5f5f7" : Color.foreground
-  readonly property color fgDim: Util.alpha(fg, 0.6)
+  // The same live palette and border renderer as Omarchy's popup cards.
+  readonly property color surface: Color.popups.background
+  readonly property color fg: Color.popups.text
+  readonly property color fgDim: Util.alpha(fg, 0.65)
   readonly property color accentColor: Color.accent
   readonly property color urgentColor: Color.urgent
-  readonly property color greenColor: themeColors.color2 || Color.accent
-  readonly property color orangeColor: themeColors.color3 || Color.urgent
-  readonly property color outline: blackBackground ? "transparent" : Util.alpha(Color.foreground, 0.1)
-  // Obsidian body: lit a touch from above, deepening toward the lip, with a
-  // hairline rim. All derived from the theme, all vector (stays crisp).
-  readonly property color surfaceTop: Qt.tint(surface, Util.alpha(Color.foreground, blackBackground ? 0.05 : 0.055))
-  readonly property color surfaceBottom: blackBackground ? "#000000" : Qt.darker(surface, 1.28)
-  function bodyAt(t) {
-    var a = surfaceTop, b = surfaceBottom
-    return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1)
-  }
-  readonly property color rim: Util.alpha(Color.foreground, blackBackground ? 0.08 : 0.1)
+  readonly property color greenColor: themeColors.green || themeColors.color2 || Color.accent
+  readonly property color orangeColor: themeColors.orange || themeColors.color3 || Color.accent
+  readonly property real corner: Math.min(Style.cornerRadius, Style.space(2))
+  readonly property var frameSpec: Border.surfaceSpec("popups", "border", Color.popups.border, Math.max(1, Style.space(2)))
+  readonly property color rim: Color.popups.border
+  // Prefer the theme's on-selection text; the current Amiga palette supplies it.
+  readonly property color accentText: themeColors.selection_foreground || surface
+  function bodyAt(t) { return surface }
   // Numbers, time and icons in the theme's (Nerd) monospace; words in iA
   // Writer Quattro, which Omarchy ships and which sits well beside a mono.
   // "textFont": "theme" keeps everything in the theme font.
   readonly property string fontFamily: Style.font.family
   readonly property string textFamily: {
-    var t = String(setting("textFont", "iA Writer Quattro V"))
+    var t = String(setting("textFont", "theme"))
     return t === "theme" ? Style.font.family : t
   }
 
@@ -199,7 +188,7 @@ Item {
   readonly property bool mediaCanPrevious: demoMedia ? true : (!!player && player.canGoPrevious)
   property real mediaPosition: 0
 
-  // Keep the activity up for a while after pausing, like iOS does, so a
+  // Keep the activity up for a while after pausing, during brief pauses, so a
   // quick pause does not make the island collapse and re-open.
   property bool mediaLinger: false
   onMediaPlayingChanged: {
@@ -463,9 +452,9 @@ Item {
   // itself once that plugin has let go. Setting "notifications": false or
   // "osd": false, or disabling/removing this plugin, gives the job back.
   // ------------------------------------------------------------------
-  readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy/dynamic-island"
-  readonly property bool wantsNotifications: setting("notifications", true) !== false
-  readonly property bool wantsOsd: setting("osd", true) !== false
+  readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy/amiga-island"
+  readonly property bool wantsNotifications: setting("notifications", false) === true
+  readonly property bool wantsOsd: setting("osd", false) === true
   readonly property bool omarchyNotificationsOff: disabledPlugins.indexOf("omarchy.notifications") !== -1
   readonly property bool omarchyOsdOff: disabledPlugins.indexOf("omarchy.osd") !== -1
   property bool notificationsReady: false
@@ -576,7 +565,7 @@ Item {
       return
     }
     var bind = "o.bind(\"" + keybind + "\", \"Toggle island reserved space\", " +
-               "\"omarchy-shell dynamic-island reserveSpace toggle\")"
+               "\"omarchy-shell amiga-island reserveSpace toggle\")"
     var block = [
       "-- BEGIN " + pluginId,
       "-- Added by the " + pluginId + " plugin and removed with it. Change the key",
@@ -816,7 +805,7 @@ Item {
 
   // ------------------------------------------------------------------
   // Media tint: the theme accent, or (visualizerColor: "artwork") the most
-  // vivid color of the cover, like iOS. It colors the equalizer and glow.
+  // vivid color of the cover for the equalizer.
   // ------------------------------------------------------------------
   ColorQuantizer {
     id: quantizer
@@ -1147,7 +1136,7 @@ Item {
     })
   }
 
-  readonly property string demoCoverPath: Quickshell.env("HOME") + "/.local/state/omarchy/dynamic-island/demo-cover.png"
+  readonly property string demoCoverPath: Quickshell.env("HOME") + "/.local/state/omarchy/amiga-island/demo-cover.png"
   property bool demoCoverReady: false
   Process {
     running: true
@@ -1161,8 +1150,8 @@ Item {
     Qt.callLater(function() { root.shownTrack = root.trackSignature })
     // A demo cover if one has been made (the showcase does), else the
     // current wallpaper stands in for album art.
-    var art = demoCoverReady ? demoCoverPath : Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
-    var media = { playing: true, title: "Midnight City", artist: "M83", art: "file://" + art, length: 243 }
+    var art = demoCoverReady ? "file://" + demoCoverPath : ""
+    var media = { playing: true, title: "Midnight City", artist: "M83", art: art, length: 243 }
     if (kind === "off") {
       demo = null; hud = null; collapse(); recordingProbe.running = true; cameraProbe.running = true
       clocks.cancelTimer(); clocks.resetStopwatch(); activitySource.end("demo", ""); calendarSource.refresh()
@@ -1215,7 +1204,7 @@ Item {
     } else if (kind === "stopwatch") {
       clocks.resetStopwatch(); clocks.toggleStopwatch()
     } else if (kind === "activity") {
-      activitySource.update("demo", { title: "Building omarchy-dynamic-island", subtitle: "Compiling views · 14 of 22", icon: "󰏗", progress: 0.64, color: "green", ttl: 60 })
+      activitySource.update("demo", { title: "Building nerdibeard.amiga-island", subtitle: "Compiling views · 14 of 22", icon: "󰏗", progress: 0.64, color: "green", ttl: 60 })
     } else if (kind === "calendar") {
       calendarSource.demo()
     } else if (kind === "calendar-view") {
@@ -1227,7 +1216,7 @@ Item {
     } else if (kind === "outputs") {
       demo = { media: media }; mediaPosition = 71; openOutputs()
     } else if (kind === "toast") {
-      toast({ title: "Build finished", body: "omarchy-dynamic-island · 0 errors", icon: "󰄬", color: "green" })
+      toast({ title: "Build finished", body: "nerdibeard.amiga-island · 0 errors", icon: "󰄬", color: "green" })
     } else {
       return "unknown demo: " + kind
     }
@@ -1246,7 +1235,7 @@ Item {
   }
 
   IpcHandler {
-    target: "dynamic-island"
+    target: "amiga-island"
 
     function expand(): string { root.expand(); return "ok" }
     // on | off | toggle: keep a strip free for the island, or let windows
@@ -1300,6 +1289,10 @@ Item {
     function state(): string {
       return JSON.stringify({
         view: root.view,
+        geometry: { x: island.x, y: island.y, width: island.width, height: island.height,
+          exclusiveZone: win.exclusiveZone, corner: root.corner },
+        palette: { background: String(root.surface), foreground: String(root.fg), accent: String(root.accentColor) },
+        reducedMotion: Style.reduceMotion,
         primary: root.primary,
         secondary: root.secondary,
         expanded: root.userExpanded,
@@ -1359,13 +1352,15 @@ Item {
     implicitHeight: root.s(360) + root.topMargin
     color: "transparent"
 
-    WlrLayershell.namespace: "dynamic-island"
+    WlrLayershell.namespace: "amiga-island"
     WlrLayershell.layer: root.setting("layer", "top") === "overlay" ? WlrLayer.Overlay : WlrLayer.Top
     // Keyboard only while the calendar's link field is up (typing and
     // Ctrl+V go straight in; Esc hands it back). Otherwise the island never
     // takes focus from the app you're in.
     WlrLayershell.keyboardFocus: root.calendarTyping ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    exclusionMode: root.reserveSpace ? ExclusionMode.Normal : ExclusionMode.Ignore
+    // Normal with a zero zone respects the existing bar without reserving space.
+    // Setting exclusiveZone also forces Normal; do not combine it with Ignore.
+    exclusionMode: ExclusionMode.Normal
     exclusiveZone: root.reserveSpace ? root.s(32) + root.topMargin : 0
 
     // Esc always hands the keyboard back, wherever focus is inside.
@@ -1384,125 +1379,20 @@ Item {
       id: stage
       anchors.fill: parent
 
-      // The spring: each dimension chases the current view's target with a
-      // little overshoot, which is most of what makes it feel like iOS.
+      // Short, non-overshooting geometry changes. Honor Omarchy Reduced Motion.
       property real w: root.s(root.viewSize.w)
       property real h: root.s(root.viewSize.h)
-      property real r: root.s(root.viewSize.r)
+      property real r: root.corner
+      Behavior on w { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
+      Behavior on h { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
 
-      Behavior on w { SpringAnimation { spring: 3.4; damping: 0.28; mass: 1.0; epsilon: 0.25 } }
-      Behavior on h { SpringAnimation { spring: 3.4; damping: 0.32; mass: 1.0; epsilon: 0.25 } }
-      Behavior on r { SpringAnimation { spring: 3.4; damping: 0.32; mass: 1.0; epsilon: 0.25 } }
-
-      readonly property real earSize: root.s(9)
-
-      // Notch style: the body and its two concave "ears" (the fillets that
-      // blend it into the screen edge) are one continuous outline, so there
-      // is no seam where separate pieces would meet. Every coordinate is on
-      // the device pixel grid, so the edges stay crisp at 1.25x/1.5x.
-      Shape {
-        id: notchShape
-        visible: root.notch && island.width > stage.earSize * 2
-        anchors.fill: parent
-        preferredRendererType: Shape.CurveRenderer
-
-        readonly property real e: stage.earSize
-        readonly property real x0: island.x
-        readonly property real x1: island.x + island.width
-        readonly property real h: island.height
-        readonly property real r: Math.max(0, Math.min(island.radius, h - e, island.width / 2))
-
-        ShapePath {
-          strokeColor: "transparent"
-          fillGradient: LinearGradient {
-            x1: 0; y1: 0; x2: 0; y2: notchShape.h
-            GradientStop { position: 0; color: root.surfaceTop }
-            GradientStop { position: 1; color: root.surfaceBottom }
-          }
-          startX: notchShape.x0 - notchShape.e; startY: 0
-          PathArc { x: notchShape.x0; y: notchShape.e; radiusX: notchShape.e; radiusY: notchShape.e; direction: PathArc.Clockwise }
-          PathLine { x: notchShape.x0; y: notchShape.h - notchShape.r }
-          PathArc { x: notchShape.x0 + notchShape.r; y: notchShape.h; radiusX: notchShape.r; radiusY: notchShape.r; direction: PathArc.Counterclockwise }
-          PathLine { x: notchShape.x1 - notchShape.r; y: notchShape.h }
-          PathArc { x: notchShape.x1; y: notchShape.h - notchShape.r; radiusX: notchShape.r; radiusY: notchShape.r; direction: PathArc.Counterclockwise }
-          PathLine { x: notchShape.x1; y: notchShape.e }
-          PathArc { x: notchShape.x1 + notchShape.e; y: 0; radiusX: notchShape.e; radiusY: notchShape.e; direction: PathArc.Clockwise }
-          PathLine { x: notchShape.x0 - notchShape.e; y: 0 }
-        }
-
-        // Rim: the sides and lip catch a hairline of light; the top edge is
-        // the screen edge, so it stays open.
-        ShapePath {
-          fillColor: "transparent"
-          strokeColor: root.rim
-          strokeWidth: 1
-          startX: notchShape.x0 - notchShape.e; startY: 0
-          PathArc { x: notchShape.x0; y: notchShape.e; radiusX: notchShape.e; radiusY: notchShape.e; direction: PathArc.Clockwise }
-          PathLine { x: notchShape.x0; y: notchShape.h - notchShape.r }
-          PathArc { x: notchShape.x0 + notchShape.r; y: notchShape.h; radiusX: notchShape.r; radiusY: notchShape.r; direction: PathArc.Counterclockwise }
-          PathLine { x: notchShape.x1 - notchShape.r; y: notchShape.h }
-          PathArc { x: notchShape.x1; y: notchShape.h - notchShape.r; radiusX: notchShape.r; radiusY: notchShape.r; direction: PathArc.Counterclockwise }
-          PathLine { x: notchShape.x1; y: notchShape.e }
-          PathArc { x: notchShape.x1 + notchShape.e; y: 0; radiusX: notchShape.e; radiusY: notchShape.e; direction: PathArc.Clockwise }
-        }
-      }
-
-      // Floating style: the same body as a capsule, rim all the way round.
-      Shape {
-        id: capsule
-        visible: !root.notch && island.width > 4
-        anchors.fill: parent
-        preferredRendererType: Shape.CurveRenderer
-
-        ShapePath {
-          strokeColor: root.rim
-          strokeWidth: 1
-          fillGradient: LinearGradient {
-            x1: 0; y1: island.y; x2: 0; y2: island.y + island.height
-            GradientStop { position: 0; color: root.surfaceTop }
-            GradientStop { position: 1; color: root.surfaceBottom }
-          }
-          PathRectangle {
-            x: island.x + 0.5; y: island.y + 0.5
-            width: Math.max(0, island.width - 1); height: Math.max(0, island.height - 1)
-            radius: Math.max(0, island.radius - 0.5)
-          }
-        }
-      }
-
-      // A soft light behind the island in the music's color while something
-      // plays. Only this glow goes through a blur layer; the island itself
-      // is never layered, so its content stays sharp.
-      Rectangle {
-        id: glow
-        readonly property bool lit: root.glowEnabled && root.mediaPlaying
-          && (root.view === "media" || root.view === "media-expanded" || root.view === "hud-track")
-        x: island.x - root.s(4)
-        y: island.y + root.s(2)
-        width: island.width + root.s(8)
-        height: island.height + root.s(2)
-        radius: island.radius
-        color: root.mediaTint
-        opacity: lit ? breath : 0
-        visible: opacity > 0.01
-        property real breath: 0.5
-
-        Behavior on opacity { NumberAnimation { duration: 700; easing.type: Easing.InOutSine } }
-
-        SequentialAnimation on breath {
-          running: glow.lit
-          loops: Animation.Infinite
-          NumberAnimation { to: 0.28; duration: 1600; easing.type: Easing.InOutSine }
-          NumberAnimation { to: 0.55; duration: 1600; easing.type: Easing.InOutSine }
-        }
-
-        layer.enabled: visible
-        layer.effect: MultiEffect {
-          blurEnabled: true
-          blur: 1.0
-          blurMax: 40
-          autoPaddingEnabled: true
-        }
+      Ui.BorderSurface {
+        x: island.x; y: island.y
+        width: island.width; height: island.height
+        radius: root.corner
+        visible: island.width > 4
+        color: root.surface
+        borderSpec: root.frameSpec
       }
 
       // A plain Rectangle with scissor clipping on purpose: clipping through
@@ -1521,11 +1411,10 @@ Item {
         color: "transparent"
         clip: true
         opacity: width < 4 ? 0 : 1
-        scale: islandPress.pressed ? 0.965 : 1
+
         transformOrigin: Item.Top
 
-        Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
-        Behavior on opacity { NumberAnimation { duration: 160 } }
+        Behavior on opacity { NumberAnimation { duration: Style.duration(160) } }
 
         HoverHandler { id: islandHover }
 
@@ -1708,8 +1597,8 @@ Item {
         }
       }
 
-      // Split island: the second live activity in its own circle.
-      Rectangle {
+      // A second activity appears as a small, framed status tile.
+      Ui.BorderSurface {
         id: bubble
 
         readonly property real d: root.s(32)
@@ -1717,23 +1606,19 @@ Item {
 
         width: d
         height: d
-        radius: d / 2
+        radius: root.corner
         y: root.notch ? root.s(4) : root.topMargin
         x: root.showBubble ? restX : island.x + island.width - d
-        gradient: Gradient {
-          GradientStop { position: 0; color: root.surfaceTop }
-          GradientStop { position: 1; color: root.surfaceBottom }
-        }
-        border.width: 1
-        border.color: root.rim
+        color: root.surface
+        borderSpec: root.frameSpec
         opacity: root.showBubble ? 1 : 0
-        scale: root.showBubble ? 1 : 0.4
+
         visible: opacity > 0.01
         clip: true
 
-        Behavior on x { SpringAnimation { spring: 3.4; damping: 0.3; epsilon: 0.25 } }
-        Behavior on opacity { NumberAnimation { duration: 200 } }
-        Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.OutBack } }
+        Behavior on x { NumberAnimation { duration: Style.duration(160); easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: Style.duration(200) } }
+
 
         BubbleContent {
           anchors.fill: parent

@@ -14,7 +14,7 @@ Item {
   readonly property real r: Math.max(0, Math.min(width, height) / 2 - lineWidth / 2)
   readonly property real sweep: Math.max(0, Math.min(1, progress)) * 360
 
-  Behavior on progress { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+  Behavior on progress { NumberAnimation { duration: Style.duration(400); easing.type: Easing.OutCubic } }
 
   Shape {
     anchors.fill: parent

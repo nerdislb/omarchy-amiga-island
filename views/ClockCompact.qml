@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 import "../IslandModel.js" as Model
 
 // Timer or stopwatch, compact. The timer's glyph sits in a ring that fills

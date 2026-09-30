@@ -1,7 +1,8 @@
 import QtQuick
+import qs.Commons
 
-// The detached circle that carries a second live activity while the pill is
-// busy with the first, like iOS's split island.
+// The detached framed tile that carries a second live activity while the pill is
+// busy with the first, separate from the primary activity.
 Item {
   id: view
 
@@ -13,7 +14,7 @@ Item {
     visible: view.kind === "media"
     width: parent.width - island.s(10)
     height: width
-    radius: width / 2
+    radius: Math.min(Style.cornerRadius, Style.space(2))
     source: island.mediaArt
     tint: island.accentColor
     fontFamily: island.fontFamily

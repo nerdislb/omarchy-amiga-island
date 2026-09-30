@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // A script's live activity, compact: its glyph on the leading edge (in a
 // progress ring when it reports progress) and its value or percentage on

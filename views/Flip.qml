@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // Text that flips to its next value like a split-flap board: the old value
 // slides up out of the island while the new one rises in from below, a beat
@@ -53,13 +54,13 @@ Item {
   SequentialAnimation {
     id: turn
     ParallelAnimation {
-      NumberAnimation { target: current; property: "y"; to: -current.implicitHeight; duration: 240; easing.type: Easing.InCubic }
-      NumberAnimation { target: current; property: "opacity"; to: 0; duration: 200 }
+      NumberAnimation { target: current; property: "y"; to: -current.implicitHeight; duration: Style.duration(100); easing.type: Easing.InCubic }
+      NumberAnimation { target: current; property: "opacity"; to: 0; duration: Style.duration(100) }
       SequentialAnimation {
-        PauseAnimation { duration: 120 }
+        PauseAnimation { duration: Style.duration(40) }
         ParallelAnimation {
-          NumberAnimation { target: incoming; property: "y"; from: flip.height; to: flip.restY; duration: 420; easing.type: Easing.OutBack; easing.overshoot: 1.3 }
-          NumberAnimation { target: incoming; property: "opacity"; from: 0; to: 1; duration: 260 }
+          NumberAnimation { target: incoming; property: "y"; from: flip.height; to: flip.restY; duration: Style.duration(180); easing.type: Easing.OutCubic }
+          NumberAnimation { target: incoming; property: "opacity"; from: 0; to: 1; duration: Style.duration(140) }
         }
       }
     }

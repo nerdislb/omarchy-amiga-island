@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // Next meeting, compact: calendar glyph, the title scrolling through the
 // middle, and the countdown on the trailing edge.

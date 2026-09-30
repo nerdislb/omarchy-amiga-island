@@ -16,7 +16,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     width: island.s(44)
     height: width
-    radius: width / 2
+    radius: Math.min(Style.cornerRadius, Style.space(2))
     color: Util.alpha(view.tone, 0.2)
 
     Text {

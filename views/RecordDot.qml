@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // A dot that breathes, for recording and privacy indicators.
 Rectangle {
@@ -12,9 +13,9 @@ Rectangle {
   radius: size / 2
 
   SequentialAnimation on opacity {
-    running: dot.pulsing && dot.visible
+    running: dot.pulsing && dot.visible && !Style.reduceMotion
     loops: Animation.Infinite
-    NumberAnimation { to: 0.35; duration: 800; easing.type: Easing.InOutSine }
-    NumberAnimation { to: 1; duration: 800; easing.type: Easing.InOutSine }
+    NumberAnimation { to: 0.35; duration: Style.duration(800); easing.type: Easing.InOutSine }
+    NumberAnimation { to: 1; duration: Style.duration(800); easing.type: Easing.InOutSine }
   }
 }

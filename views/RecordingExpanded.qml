@@ -60,12 +60,10 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       height: island.s(32)
       width: stopLabel.implicitWidth + island.s(30)
-      radius: height / 2
+      radius: Math.min(Style.cornerRadius, Style.space(2))
       color: stopMouse.pressed ? Util.alpha(island.urgentColor, 0.95)
         : (stopMouse.containsMouse ? Util.alpha(island.urgentColor, 0.85) : island.urgentColor)
-      scale: stopMouse.pressed ? 0.94 : 1
 
-      Behavior on scale { NumberAnimation { duration: 120 } }
 
       Text {
         id: stopLabel

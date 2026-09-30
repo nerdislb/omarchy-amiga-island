@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Effects
-import QtQuick.Shapes
 import qs.Commons
 import "../IslandModel.js" as Model
 
@@ -13,61 +11,6 @@ Item {
   readonly property int pad: island.s(22)
   readonly property real progress: island.mediaLength > 0
     ? Math.max(0, Math.min(1, island.mediaPosition / island.mediaLength)) : 0
-
-  // The cover, blurred into a soft wash behind the player (Apple Music
-  // style). Only this backdrop goes through a blur; it is painted into a
-  // vector shape with the island's corners, so the edges stay crisp.
-  readonly property real corner: island.s(42)
-
-  Image {
-    id: washSource
-    visible: false
-    width: view.width
-    height: view.height
-    source: island.mediaArt
-    sourceSize.width: 96
-    sourceSize.height: 96
-    fillMode: Image.PreserveAspectCrop
-    asynchronous: true
-  }
-
-  MultiEffect {
-    id: washBlur
-    width: view.width
-    height: view.height
-    source: washSource
-    blurEnabled: true
-    blur: 1.0
-    blurMax: 64
-    saturation: 0.45
-  }
-
-  ShaderEffectSource {
-    id: washTexture
-    sourceItem: washBlur
-    hideSource: true
-    visible: false
-  }
-
-  Shape {
-    anchors.fill: parent
-    visible: washSource.status === Image.Ready
-    opacity: 0.42
-    preferredRendererType: Shape.CurveRenderer
-
-    ShapePath {
-      strokeWidth: 0
-      strokeColor: "transparent"
-      fillItem: washTexture
-      PathRectangle {
-        x: 0; y: 0; width: view.width; height: view.height
-        topLeftRadius: island.notch ? 0 : view.corner
-        topRightRadius: island.notch ? 0 : view.corner
-        bottomLeftRadius: view.corner
-        bottomRightRadius: view.corner
-      }
-    }
-  }
 
   AlbumArt {
     id: art
@@ -174,21 +117,17 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width
         height: track.barHeight
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.fg, 0.16)
 
-        Behavior on height { NumberAnimation { duration: 120 } }
+        Behavior on height { NumberAnimation { duration: Style.duration(120) } }
 
         Rectangle {
           id: played
           height: parent.height
-          radius: height / 2
+          radius: Math.min(Style.cornerRadius, Style.space(2))
           width: Math.max(view.progress > 0 ? height : 0, parent.width * view.progress)
-          gradient: Gradient {
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: Util.alpha(island.fg, 0.55) }
-            GradientStop { position: 1; color: island.fg }
-          }
+          color: island.accentColor
         }
 
         // The playhead.
@@ -196,14 +135,14 @@ Item {
           property real d: seek.containsMouse ? island.s(13) : island.s(9)
           width: d
           height: d
-          radius: d / 2
+          radius: Math.min(Style.cornerRadius, Style.space(2))
           x: played.width - d / 2
           anchors.verticalCenter: parent.verticalCenter
           color: island.fg
           border.width: Math.max(1, island.s(2))
           border.color: island.bodyAt(0.6)
 
-          Behavior on d { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+          Behavior on d { NumberAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic } }
         }
       }
 
@@ -247,16 +186,14 @@ Item {
       onClicked: island.mediaPrevious()
     }
 
-    // Play / pause is the one solid control: a disc in the text color.
+    // Rectangular accent action, matching the theme controls.
     Rectangle {
       anchors.verticalCenter: parent.verticalCenter
       width: island.s(44)
       height: width
-      radius: width / 2
-      color: island.fg
-      scale: playMouse.pressed ? 0.9 : (playMouse.containsMouse ? 1.05 : 1)
+      radius: Math.min(Style.cornerRadius, Style.space(2))
+      color: playMouse.pressed ? Qt.darker(island.accentColor, 1.12) : island.accentColor
 
-      Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
 
       Text {
         anchors.centerIn: parent
@@ -266,7 +203,7 @@ Item {
         renderType: Text.NativeRendering
         font.family: island.fontFamily
         font.pixelSize: island.f(22)
-        color: island.bodyAt(0.5)
+        color: island.accentText
       }
 
       MouseArea {

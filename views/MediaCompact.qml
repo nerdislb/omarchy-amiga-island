@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // Now playing, compact: cover art on the leading edge, the equalizer on the
 // trailing edge, and the song scrolling past in between.

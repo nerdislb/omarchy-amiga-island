@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // Something is listening to a microphone: glyph on the leading edge, the
 // privacy dot on the trailing edge, both in the theme's warning color.

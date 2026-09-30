@@ -145,7 +145,7 @@ Item {
             anchors.centerIn: parent
             width: island.s(24)
             height: width
-            radius: width / 2
+            radius: Math.min(Style.cornerRadius, Style.space(2))
             color: cell.isToday ? island.accentColor
               : (dayMouse.containsMouse ? Util.alpha(island.fg, 0.1) : "transparent")
             border.width: cell.isSelected && !cell.isToday ? Math.max(1, island.s(1.5)) : 0
@@ -172,7 +172,7 @@ Item {
             anchors.bottomMargin: island.s(0)
             width: island.s(4)
             height: width
-            radius: width / 2
+            radius: Math.min(Style.cornerRadius, Style.space(2))
             color: cell.isToday ? island.fg : island.orangeColor
             opacity: cell.inMonth ? 1 : 0.4
           }
@@ -251,7 +251,7 @@ Item {
         readonly property bool past: !modelData.allDay && modelData.end < Date.now()
         width: ListView.view.width
         height: island.s(40)
-        radius: island.s(12)
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.fg, eventMouse.containsMouse && modelData.url ? 0.1 : 0.05)
         opacity: past ? 0.5 : 1
 
@@ -260,7 +260,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           width: island.s(3)
           height: parent.height - island.s(16)
-          radius: width / 2
+          radius: Math.min(Style.cornerRadius, Style.space(2))
           color: eventRow.modelData.allDay ? island.orangeColor : island.accentColor
         }
 
@@ -366,7 +366,7 @@ Item {
           || modelData.code === view.cal.holidayCountry
         width: ListView.view.width
         height: island.s(24)
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: chosen ? Util.alpha(island.accentColor, 0.2) : Util.alpha(island.fg, countryMouse.containsMouse ? 0.1 : 0.03)
 
         Text {
@@ -411,7 +411,7 @@ Item {
         anchors.right: parent.right
         width: pasteLabel.implicitWidth + island.s(22)
         height: parent.height
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.accentColor, pasteMouse.pressed ? 0.34 : (pasteMouse.containsMouse ? 0.26 : 0.18))
 
         Text {
@@ -441,7 +441,7 @@ Item {
         anchors.right: pasteButton.left
         anchors.rightMargin: island.s(6)
         height: parent.height
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.fg, 0.08)
         border.width: input.activeFocus ? 1 : 0
         border.color: island.accentColor
@@ -499,7 +499,7 @@ Item {
       Rectangle {
         width: parent.width
         height: island.s(26)
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.orangeColor, holidaysMouse.containsMouse ? 0.24 : 0.14)
 
         Text {
@@ -536,7 +536,7 @@ Item {
           required property var modelData
           width: parent.width
           height: island.s(26)
-          radius: height / 2
+          radius: Math.min(Style.cornerRadius, Style.space(2))
           color: Util.alpha(island.fg, 0.05)
 
           Text {

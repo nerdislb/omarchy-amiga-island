@@ -28,8 +28,8 @@ Item {
       renderType: Text.NativeRendering
       font.family: island.fontFamily
       font.pixelSize: island.f(30)
-      font.weight: Font.Light
-      font.letterSpacing: -1
+      font.weight: Font.Medium
+      font.letterSpacing: 0
       font.features: { "tnum": 1 }
       color: island.fg
     }
@@ -109,13 +109,11 @@ Item {
         required property var modelData
         height: island.s(30)
         width: chipLabel.implicitWidth + island.s(22)
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(chip.modelData.seconds > 0 ? island.orangeColor : island.accentColor,
                           chipMouse.pressed ? 0.3 : (chipMouse.containsMouse ? 0.22 : 0.14))
-        scale: chipMouse.pressed ? 0.94 : 1
 
-        Behavior on scale { NumberAnimation { duration: 120 } }
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: Style.duration(120) } }
 
         Text {
           id: chipLabel

@@ -17,7 +17,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     width: island.s(48)
     height: width
-    radius: width / 2
+    radius: Math.min(Style.cornerRadius, Style.space(2))
     color: Util.alpha(view.tone, 0.18)
 
     ProgressRing {
@@ -113,16 +113,16 @@ Item {
       visible: !!view.item && view.item.progress >= 0
       width: parent.width
       height: island.s(4)
-      radius: height / 2
+      radius: Math.min(Style.cornerRadius, Style.space(2))
       color: Util.alpha(island.fg, 0.14)
 
       Rectangle {
         height: parent.height
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         width: parent.width * (view.item ? Math.max(0, view.item.progress) : 0)
         color: view.tone
 
-        Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+        Behavior on width { NumberAnimation { duration: Style.duration(300); easing.type: Easing.OutCubic } }
       }
     }
   }

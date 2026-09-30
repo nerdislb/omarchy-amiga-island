@@ -4,8 +4,8 @@ import Quickshell
 // Live activities pushed by scripts: a build, a download, a backup, an AI
 // agent working. Anything can start, update and end one over IPC:
 //
-//   omarchy-shell dynamic-island activity build '{"title":"Building","progress":0.4}'
-//   omarchy-shell dynamic-island endActivity build
+//   omarchy-shell amiga-island activity build '{"title":"Building","progress":0.4}'
+//   omarchy-shell amiga-island endActivity build
 //
 // The most recently updated one is shown.
 Item {

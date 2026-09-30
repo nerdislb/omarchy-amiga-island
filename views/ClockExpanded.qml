@@ -35,8 +35,8 @@ Item {
       renderType: Text.NativeRendering
       font.family: island.fontFamily
       font.pixelSize: island.f(34)
-      font.weight: Font.Light
-      font.letterSpacing: -1
+      font.weight: Font.Medium
+      font.letterSpacing: 0
       font.features: { "tnum": 1 }
       color: view.tone
     }
@@ -58,15 +58,13 @@ Item {
       onClicked: view.timer ? view.clocks.addToTimer(60) : view.clocks.resetStopwatch()
     }
 
-    // Pause / resume, in the activity's color like iOS.
+    // Pause / resume, in the activity's color.
     Rectangle {
       width: island.s(46)
       height: width
-      radius: width / 2
+      radius: Math.min(Style.cornerRadius, Style.space(2))
       color: Util.alpha(view.timer ? island.orangeColor : island.accentColor, pp.pressed ? 0.4 : 0.26)
-      scale: pp.pressed ? 0.92 : 1
 
-      Behavior on scale { NumberAnimation { duration: 120 } }
 
       Text {
         anchors.centerIn: parent

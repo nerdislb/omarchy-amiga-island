@@ -61,7 +61,7 @@ Item {
     to: -marquee.cycle
     duration: Math.max(1000, marquee.cycle / marquee.speed * 1000)
     loops: Animation.Infinite
-    running: marquee.visible && marquee.text !== "" && marquee.width > 0
+    running: !Style.reduceMotion && marquee.visible && marquee.text !== "" && marquee.width > 0
     // Pausing holds the text where it is rather than snapping it back.
     paused: running && !marquee.moving
   }

@@ -1,4 +1,5 @@
 import QtQuick
+import qs.Commons
 
 // Brief "now playing" card shown when the track changes.
 Item {

@@ -26,7 +26,7 @@ Item {
   property string detectedCountry: ""
   property string holidayChoice: "auto"
   readonly property string holidayCountry: {
-    var c = holidayChoice === "auto" ? String(island ? island.setting("holidays", "auto") : "auto") : holidayChoice
+    var c = holidayChoice === "auto" ? String(island ? island.setting("holidays", "off") : "off") : holidayChoice
     if (c === "auto") c = detectedCountry
     return c === "off" ? "" : String(c || "").toUpperCase()
   }
@@ -64,7 +64,7 @@ Item {
     return out
   }
 
-  readonly property string addedDir: Quickshell.env("HOME") + "/.config/omarchy/dynamic-island"
+  readonly property string addedDir: Quickshell.env("HOME") + "/.config/omarchy/amiga-island"
   readonly property string addedPath: addedDir + "/calendars.json"
 
   function add(link) {

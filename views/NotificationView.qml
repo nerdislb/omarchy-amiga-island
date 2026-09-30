@@ -2,7 +2,7 @@ import QtQuick
 import qs.Commons
 import "../IslandModel.js" as Model
 
-// A notification, iOS-banner style: app icon, app name, summary and body,
+// A notification, compact theme-native style: app icon, app name, summary and body,
 // with the sender's action buttons along the bottom when it has any.
 //
 // Click invokes it (default action, or focus the app); right or middle
@@ -37,7 +37,7 @@ Item {
     y: island.s(16)
     width: island.s(46)
     height: width
-    radius: Math.round(width * 0.28)
+    radius: Math.min(Style.cornerRadius, Style.space(2))
     source: island.notificationIcon(view.entry)
     placeholder: view.entry && view.entry.glyph ? view.entry.glyph : "󰂚"
     tint: view.tone
@@ -77,7 +77,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         width: island.s(20)
         height: width
-        radius: width / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.fg, closeMouse.pressed ? 0.24 : (closeMouse.containsMouse ? 0.16 : 0.08))
 
         Text {
@@ -108,7 +108,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         height: badgeText.implicitHeight + island.s(2)
         width: badgeText.implicitWidth + island.s(12)
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(view.tone, 0.22)
 
         Text {
@@ -167,10 +167,10 @@ Item {
         required property var modelData
         width: (parent.width - parent.spacing * (view.actions.length - 1)) / view.actions.length
         height: island.s(28)
-        radius: height / 2
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: Util.alpha(island.fg, actionMouse.pressed ? 0.2 : (actionMouse.containsMouse ? 0.14 : 0.08))
 
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: Style.duration(120) } }
 
         Text {
           anchors.centerIn: parent

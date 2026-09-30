@@ -56,11 +56,11 @@ Item {
         readonly property bool current: !!island.sink && island.sink.id === modelData.id
         width: parent.width
         height: island.s(40)
-        radius: island.s(14)
+        radius: Math.min(Style.cornerRadius, Style.space(2))
         color: row.current ? Util.alpha(island.accentColor, 0.18)
           : Util.alpha(island.fg, rowMouse.containsMouse ? 0.1 : 0.04)
 
-        Behavior on color { ColorAnimation { duration: 120 } }
+        Behavior on color { ColorAnimation { duration: Style.duration(120) } }
 
         Text {
           id: glyph
