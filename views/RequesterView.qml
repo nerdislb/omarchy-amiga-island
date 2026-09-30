@@ -14,8 +14,6 @@ Item {
   readonly property var others: island ? island.desktop.blocked.slice(1) : []
   readonly property bool topaz: island ? island.amigaTopaz : false
 
-  FontLoader { id: topazFont; source: Qt.resolvedUrl("../assets/fonts/nerdworkbench/NerdWorkbenchUI-Regular.ttf") }
-
   function since(a) {
     if (!a || !island) return ""
     var seen = island.desktop.seen[a.pane]
@@ -39,11 +37,10 @@ Item {
     Text { textFormat: Text.PlainText;
       x: island.s(28); anchors.verticalCenter: parent.verticalCenter
       text: "An agent is waiting for you"
-      font.family: view.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : island.fontFamily
-      font.pixelSize: view.topaz ? 16 : island.f(13)
+      font.family: island.momentFamily
+      font.pixelSize: island.momentF(13)
       font.bold: !view.topaz
       renderType: Text.NativeRendering
-      transform: Scale { origin.x: 0; xScale: 1 }
       color: island.accentText
     }
     Column {
@@ -59,23 +56,23 @@ Item {
     width: parent.width - island.s(36)
     spacing: island.s(4)
 
-    Text { textFormat: Text.PlainText;
+    Text { renderType: Text.NativeRendering; textFormat: Text.PlainText;
       width: parent.width
       elide: Text.ElideRight
       text: view.agent ? (view.agent.agent || "Agent") + (view.agent.project ? " · " + view.agent.project : "") : ""
-      font.family: island.fontFamily; font.pixelSize: island.f(11)
+      font.family: island.momentFamily; font.pixelSize: island.momentF(11)
       color: island.fgDim
     }
-    Text { textFormat: Text.PlainText;
+    Text { renderType: Text.NativeRendering; textFormat: Text.PlainText;
       width: parent.width
       elide: Text.ElideRight
       text: view.agent ? (view.agent.title || "waiting for input") : ""
-      font.family: island.textFamily; font.pixelSize: island.f(15); font.bold: true
+      font.family: island.momentFamily; font.pixelSize: island.momentF(15); font.bold: true
       color: island.fg
     }
-    Text { textFormat: Text.PlainText;
+    Text { renderType: Text.NativeRendering; textFormat: Text.PlainText;
       text: view.since(view.agent) + (view.others.length ? "  ·  +" + view.others.length + " more" : "")
-      font.family: island.fontFamily; font.pixelSize: island.f(11)
+      font.family: island.momentFamily; font.pixelSize: island.momentF(11)
       color: island.orangeColor
     }
   }
@@ -103,10 +100,10 @@ Item {
           : Util.alpha(island.fg, mouse.pressed ? 0.2 : mouse.containsMouse ? 0.12 : 0.06)
         border.width: 1
         border.color: modelData.primary ? island.orangeColor : Util.alpha(island.fg, 0.2)
-        Text { textFormat: Text.PlainText;
+        Text { renderType: Text.NativeRendering; textFormat: Text.PlainText;
           anchors.centerIn: parent
           text: btn.modelData.label
-          font.family: island.textFamily; font.pixelSize: island.f(12); font.bold: btn.modelData.primary
+          font.family: island.momentFamily; font.pixelSize: island.momentF(12); font.bold: btn.modelData.primary
           color: btn.modelData.primary ? island.orangeColor : island.fg
         }
         MouseArea {

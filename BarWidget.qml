@@ -144,6 +144,8 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
+    fontFamily: root.island && root.island.pixelFont ? root.island.pixelFamily : (bar ? bar.fontFamily : Style.font.family)
+    fontSize: root.island && root.island.pixelFont ? 16 : Style.font.body
     text: ""
     hasVisualContent: true
     horizontalMargin: 8.75

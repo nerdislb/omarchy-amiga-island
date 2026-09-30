@@ -85,7 +85,14 @@ Item {
   // Options of the Amiga Bar plugin, if installed: Amiga effects and font.
   property var amigaOptions: ({})
   readonly property bool amigaEffects: amigaOptions.effects === "amiga"
-  readonly property bool amigaTopaz: amigaOptions.font === "topaz"
+  // Amiga Bar font level: theme · topaz (Amiga moments: requester, Guru) ·
+  // bar/desktop (all island text and icons in NerdWorkbench on its 16 px grid).
+  readonly property string amigaFontLevel: String(amigaOptions.font || "theme")
+  readonly property bool amigaTopaz: amigaFontLevel !== "theme"
+  readonly property bool pixelFont: amigaFontLevel === "bar" || amigaFontLevel === "desktop"
+  FontLoader { id: pixelRegular; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Regular.ttf") }
+  FontLoader { id: pixelBold; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Bold.ttf") }
+  readonly property string pixelFamily: pixelRegular.status === FontLoader.Ready ? pixelRegular.name : "NerdWorkbench Mono"
   property bool configLoaded: false
 
   FileView {
@@ -140,11 +147,14 @@ Item {
   // Numbers, time and icons in the theme's (Nerd) monospace; words in iA
   // Writer Quattro, which Omarchy ships and which sits well beside a mono.
   // "textFont": "theme" keeps everything in the theme font.
-  readonly property string fontFamily: Style.font.family
+  readonly property string fontFamily: pixelFont ? pixelFamily : Style.font.family
   readonly property string textFamily: {
+    if (pixelFont) return pixelFamily
     var t = String(setting("textFont", "theme"))
     return t === "theme" ? Style.font.family : t
   }
+  // Amiga moments (requester, Guru strip) use the pixel font from "topaz" up.
+  readonly property string momentFamily: amigaTopaz ? pixelFamily : fontFamily
 
   function s(px) { return Math.round(Style.space(px) * scaleFactor) }
 
@@ -157,7 +167,11 @@ Item {
   readonly property bool shapeSettled: Math.abs(stage.w - s(viewSize.w)) < s(18)
     && Math.abs(stage.h - s(viewSize.h)) < s(12)
   function showing(name) { return view === name && shapeSettled }
-  function f(px) { return Math.max(6, Math.round(px * Style.fontScale * scaleFactor)) }
+  function f(px) {
+    var n = Math.max(6, Math.round(px * Style.fontScale * scaleFactor))
+    return pixelFont ? (n >= 24 ? 32 : 16) : n   // the pixel font is only crisp on its grid
+  }
+  function momentF(px) { return amigaTopaz ? 16 : f(px) }
 
   // Nothing announces itself for the first moments after (re)load, so the
   // initial volume/brightness/battery reads do not pop HUDs.
@@ -1393,7 +1407,7 @@ Item {
         nextEvent: root.calendar.next ? root.calendar.next.title : null,
         attention: root.desktop.blocked.map(function(a) { return a.agent + ": " + (a.title || "") }),
         guru: root.guru,
-        amiga: { effects: root.amigaEffects, topaz: root.amigaTopaz },
+        amiga: { effects: root.amigaEffects, font: root.amigaFontLevel, pixel: root.pixelFont },
         idle: { mode: root.idleMode, quiet: root.idleQuiet, signals: root.idleSignals.map(function(i) { return i.key }) },
         desktop: root.desktop.summary(),
         camera: root.cameraActive,
@@ -1648,7 +1662,7 @@ Item {
           ViewSlot {
             active: root.showing("attention")
             width: root.s(root.slotSize("attention").w); height: root.s(root.slotSize("attention").h)
-            Text {
+            Text { renderType: Text.NativeRendering;
               anchors.fill: parent; anchors.margins: root.s(6)
               textFormat: Text.PlainText
               text: root.attentionAgent ? (root.attentionAgent.agent || "Agent") + " is waiting" : ""

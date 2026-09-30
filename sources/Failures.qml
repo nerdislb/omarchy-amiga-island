@@ -38,15 +38,33 @@ Item {
     initializedScopes = initialized
   }
 
+  // A scan only counts when systemctl succeeded: a failed call (no bus yet,
+  // a timeout) must neither mark the scope initialized nor forget known
+  // failures, or the next good scan would announce every old failure.
+  // Output and exit status may arrive in either order.
+  function finished(proc, scope) {
+    proc.parts += 1
+    if (proc.parts === 2 && proc.status === 0) scanned(scope, proc.out)
+  }
   Process {
     id: userUnits
+    property string out: ""
+    property int status: -1
+    property int parts: 0
     command: ["systemctl", "--user", "list-units", "--failed", "--plain", "--no-legend"]
-    stdout: StdioCollector { onStreamFinished: watch.scanned("user", text) }
+    onStarted: { out = ""; status = -1; parts = 0 }
+    stdout: StdioCollector { onStreamFinished: { userUnits.out = text; watch.finished(userUnits, "user") } }
+    onExited: function(code) { userUnits.status = code; watch.finished(userUnits, "user") }
   }
   Process {
     id: sysUnits
+    property string out: ""
+    property int status: -1
+    property int parts: 0
     command: ["systemctl", "list-units", "--failed", "--plain", "--no-legend"]
-    stdout: StdioCollector { onStreamFinished: watch.scanned("system", text) }
+    onStarted: { out = ""; status = -1; parts = 0 }
+    stdout: StdioCollector { onStreamFinished: { sysUnits.out = text; watch.finished(sysUnits, "system") } }
+    onExited: function(code) { sysUnits.status = code; watch.finished(sysUnits, "system") }
   }
   Process {
     id: dumps

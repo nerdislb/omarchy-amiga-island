@@ -35,8 +35,6 @@ PanelWindow {
   }
   readonly property bool frameOn: Style.reduceMotion || blinks >= 6 || blinks % 2 === 0
 
-  FontLoader { id: topazFont; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchUI-Regular.ttf") }
-
   Rectangle {
     id: strip
     anchors.fill: parent
@@ -51,23 +49,22 @@ PanelWindow {
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
         text: "Software Failure.    Click for details."
+        textFormat: Text.PlainText
         color: "#ff2222"
-        font.family: win.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : Style.font.family
+        font.family: win.island ? win.island.momentFamily : Style.font.family
         font.pixelSize: win.topaz ? 16 : Style.font.title
         font.bold: !win.topaz
         renderType: Text.NativeRendering
-        transform: Scale { origin.x: 0; xScale: 1 }
-        width: win.topaz ? implicitWidth : implicitWidth
-        leftPadding: 0
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
+        // The unit name comes from systemd output: never interpret it as markup.
         text: win.guru ? "Guru Meditation " + win.guru.code + (win.guru.kind === "crash" ? "  ·  crash" : "  ·  service failed") : ""
+        textFormat: Text.PlainText
         color: "#ff2222"
-        font.family: win.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : Style.font.family
+        font.family: win.island ? win.island.momentFamily : Style.font.family
         font.pixelSize: win.topaz ? 16 : Style.font.body
         renderType: Text.NativeRendering
-        transform: Scale { origin.x: 0; xScale: 1 }
       }
     }
 
