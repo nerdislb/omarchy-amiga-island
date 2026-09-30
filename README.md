@@ -9,11 +9,28 @@ Local theme-native adaptation of [Arjun010011/omarchy-dynamic-island](https://gi
 - Short non-overshooting transitions; no glass blur, cover wash, hardware notch or pill/disc styling.
 - Live colors, font scale and Reduced Motion follow the running Omarchy shell.
 
+## Desktop integration (1.1)
+
+The island shows what the rest of this desktop already knows instead of keeping its own copy. All links are **read-only**; nothing is written to or sent from them.
+
+| Source | Shown as | Setting |
+|---|---|---|
+| OmaMail calendar cache `~/.cache/omamail/calendar-bar.json` (iCloud/CalDAV, same as the bar clock) | next meeting, month view, "starting now" toast | `omamail` |
+| Flux daemon socket `$XDG_RUNTIME_DIR/flux/fluxd.sock` (`subscribe` only) | working herdr/OpenClaw agents as a live activity; "Done" toast after ≥20 s of work | `flux`, `agents`, `agentDone` |
+| Flux paired phone | battery in the opened island; one low-battery HUD per discharge | `phone` |
+| Omarchy agent usage `~/.local/state/omarchy/agents/usage/<id>.json` | HUD when a limit crosses 90 %, reaches 100 % or resets; tightest limit in the opened island | `aiLimits`, `aiProviders` |
+
+Extra `.ics` feeds still work (`calendars`, or **+** in the calendar view).
+
+**Resting state** (`idle`): `auto` (default) shows the resting island only when it has something the bar does not already show (working agents, a meeting within 12 h, a limit ≥ 90 %, low phone/laptop battery, today's all-day events, Do Not Disturb), otherwise an 8 px lip under the bar that opens on hover/click. `pill` always shows it; `hidden` shows nothing until something is live. The time and date stay in the bar.
+
+The gap under the bar defaults to Omarchy's own popup gap (`Style.gapsOut`); set `topMargin` to override.
+
 ## Integration
 
 Plugin ID: `nerdibeard.amiga-island`. IPC: `amiga-island`.
 
-This is an additional panel, **not a bar replacement**. By default it floats below the existing top bar and reserves no extra space. `topMargin` is the gap **below** that bar, not the absolute distance to the display edge; the compositor places the zero-exclusive-zone surface below existing reserved panels. The default `top` layer leaves fullscreen apps above it. Only the island and the second-activity tile take pointer input.
+This is an additional panel, **not a bar replacement**. By default it floats below the existing top bar and reserves no extra space. `topMargin` (optional) is the gap **below** that bar, not the absolute distance to the display edge; the compositor places the zero-exclusive-zone surface below existing reserved panels. The default `top` layer leaves fullscreen apps above it. Only the island and the second-activity tile take pointer input.
 
 Existing Omarchy notifications, OSD and keybindings are untouched by default. Corresponding settings are `notifications: false`, `osd: false`, `keybind: false`, `volume: false`, `brightness: false`. Calendar subscriptions start empty; external holiday feeds are off. No account settings are imported.
 

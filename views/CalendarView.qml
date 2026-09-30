@@ -4,8 +4,8 @@ import "../IslandModel.js" as Model
 
 // The calendar: a month on the left (today filled, the selected day ringed,
 // a dot under days with events) and the selected day's events on the right.
-// Click an event to open its meeting link. The + button (or the empty
-// state) opens a field to paste a calendar's .ics link.
+// Click an event to open its meeting link. The + button lists OmaMail's
+// calendars and opens a field to paste an extra .ics link.
 Item {
   id: view
 
@@ -21,7 +21,7 @@ Item {
 
   readonly property var days: cal.month(year, monthIndex)
   readonly property var dayEvents: days[Model.dayKey(selected)] || []
-  readonly property bool hasCalendars: cal.sources.length > 0
+  readonly property bool hasCalendars: cal.hasAny
   property bool pickingHolidays: false
 
   // Monday or Sunday first, whatever the locale says.
@@ -527,6 +527,48 @@ Item {
         }
       }
 
+      // OmaMail's calendars: shown, not managed here (OmaMail owns them).
+      Repeater {
+        model: view.cal.omamailSources
+
+        Rectangle {
+          id: mailSource
+          required property var modelData
+          width: parent.width
+          height: island.s(26)
+          radius: Math.min(Style.cornerRadius, Style.space(2))
+          color: Util.alpha(island.fg, 0.05)
+
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: island.s(12)
+            anchors.right: via.left
+            anchors.rightMargin: island.s(6)
+            anchors.verticalCenter: parent.verticalCenter
+            text: "󰃭  " + mailSource.modelData
+            elide: Text.ElideRight
+            textFormat: Text.PlainText
+            renderType: Text.NativeRendering
+            font.family: island.textFamily
+            font.pixelSize: island.f(10)
+            color: island.fg
+          }
+
+          Text {
+            id: via
+            anchors.right: parent.right
+            anchors.rightMargin: island.s(10)
+            anchors.verticalCenter: parent.verticalCenter
+            text: "OmaMail"
+            textFormat: Text.PlainText
+            renderType: Text.NativeRendering
+            font.family: island.textFamily
+            font.pixelSize: island.f(10)
+            color: island.fgDim
+          }
+        }
+      }
+
       // Calendars already added, each with its own ×.
       Repeater {
         model: view.cal.sources.filter(function(l) { return l !== view.cal.holidayLink })
@@ -585,7 +627,7 @@ Item {
       }
 
       Text {
-        visible: view.cal.sources.length === 0
+        visible: view.cal.sources.length === 0 && view.cal.omamailSources.length === 0
         width: parent.width
         wrapMode: Text.WordWrap
         text: "Google: Settings › your calendar › Secret address in iCal format. " +

@@ -3,10 +3,11 @@ import Quickshell
 import Quickshell.Io
 import "../IslandModel.js" as Model
 
-// Next meeting from iCalendar feeds. Any calendar that can publish an .ics
-// link works (Google "secret address in iCal format", iCloud public
-// calendar, Outlook "publish calendar", Nextcloud, Fastmail) as can local
-// .ics files. Configured with "calendars": [...] in the island's settings.
+// Next meeting from this desktop's calendars. The primary source is
+// OmaMail's unified calendar (the iCloud/CalDAV calendars the bar clock
+// already shows), read from OmaMail's own cache: no second login, no
+// account data copied. Extra iCalendar feeds (.ics links or local files)
+// can still be added with "calendars": [...] or from the calendar view.
 Item {
   id: calendar
 
@@ -112,8 +113,65 @@ Item {
   }
   readonly property int leadMinutes: island ? Math.max(1, Number(island.setting("calendarLeadMinutes", 15)) || 15) : 15
 
+  // ---- OmaMail (read-only; OmaMail refreshes its cache itself)
+  readonly property bool omamailEnabled: island ? island.setting("omamail", true) !== false : true
+  readonly property string omamailPath: Quickshell.env("HOME") + "/.cache/omamail/calendar-bar.json"
+  property var omamailEvents: []
+  property var omamailSources: []
+  property double omamailUpdated: 0
+
+  FileView {
+    path: calendar.omamailEnabled ? calendar.omamailPath : ""
+    printErrors: false
+    watchChanges: true
+    onFileChanged: reload()
+    // Applied on the next turn: the first load can complete while a view is
+    // still evaluating bindings that read the calendar.
+    onLoaded: {
+      var body = text()
+      Qt.callLater(function() {
+        if (!calendar.omamailEnabled) return
+        var parsed = Model.omamailEvents(body, Date.now())
+        calendar.omamailEvents = parsed.events
+        calendar.omamailSources = parsed.sources
+        calendar.omamailUpdated = parsed.at
+        calendar.rebuild()
+      })
+    }
+    onLoadFailed: {
+      calendar.omamailEvents = []
+      calendar.omamailSources = []
+      calendar.rebuild()
+    }
+  }
+
+  // Emptying the path loads nothing, so drop what was read explicitly.
+  onOmamailEnabledChanged: if (!omamailEnabled) {
+    omamailEvents = []
+    omamailSources = []
+    rebuild()
+  }
+
+  readonly property bool hasAny: sources.length > 0 || omamailSources.length > 0
+
+  // Timed events from the .ics feeds for the next week; merged with
+  // OmaMail's into `events` by rebuild().
+  property var icsEvents: []
   property var events: []
   property double now: Date.now()
+
+  function rebuild() {
+    var from = Date.now() - 3600000
+    var to = from + 8 * 86400000
+    var mail = omamailEvents.filter(function(e) { return !e.allDay && e.end > from && e.start < to })
+    events = icsEvents.concat(mail).sort(function(a, b) { return a.start - b.start })
+    now = Date.now()
+    version++
+  }
+
+  function omamailIn(from, to, includeAllDay) {
+    return omamailEvents.filter(function(e) { return e.end > from && e.start < to && (includeAllDay || !e.allDay) })
+  }
   // The fetched feeds, kept so the month view can read any month on demand.
   property string raw: ""
   property int version: 0
@@ -124,7 +182,7 @@ Item {
     version
     var from = new Date(year, monthIndex, 1).getTime() - 7 * 86400000
     var to = new Date(year, monthIndex + 1, 1).getTime() + 14 * 86400000
-    return Model.eventsByDay(Model.parseIcs(raw, from, to, true))
+    return Model.eventsByDay(Model.parseIcs(raw, from, to, true).concat(omamailIn(from, to, true)))
   }
 
   // The next event that has not ended yet.
@@ -139,7 +197,8 @@ Item {
     version
     var d = new Date(now)
     var from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-    var list = raw ? Model.parseIcs(raw, from, from + 86400000 - 1, true) : []
+    var list = (raw ? Model.parseIcs(raw, from, from + 86400000 - 1, true) : [])
+      .concat(omamailIn(from, from + 86400000 - 1, true))
     return list.filter(function(e) { return e.allDay }).map(function(e) { return e.title })
   }
 
@@ -220,9 +279,8 @@ Item {
         }
         calendar.status = map
         calendar.raw = text
-        calendar.events = Model.parseIcs(text, from, from + 8 * 86400000)
-        calendar.now = Date.now()
-        calendar.version++
+        calendar.icsEvents = Model.parseIcs(text, from, from + 8 * 86400000)
+        calendar.rebuild()
         calendar.reportAdded()
         if (calendar.refetch) {
           calendar.refetch = false
@@ -233,7 +291,8 @@ Item {
   }
 
   function refresh() {
-    if (sources.length === 0) { events = []; raw = ""; version++; return }
+    // Deferred: `sources` is first read lazily from inside view bindings.
+    if (sources.length === 0) { icsEvents = []; raw = ""; Qt.callLater(calendar.rebuild); return }
     // A fetch already in flight has the old list: fetch again when it ends.
     if (fetch.running) { refetch = true; return }
     // Set here rather than bound: a binding can lag the sources change that

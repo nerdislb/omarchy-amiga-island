@@ -3,93 +3,155 @@ import Quickshell
 import qs.Commons
 import "../IslandModel.js" as Model
 
-// What the island opens into when nothing is live: the time, the date, the
-// next meeting, the battery, and one-tap timers and a stopwatch.
+// What the island opens into when nothing is live. The bar above already
+// shows the time, so this is about what comes next: the next meeting from
+// the desktop's calendars (OmaMail), what the agents, the AI limits, the
+// phone and the laptop are doing, and one-tap timers and a stopwatch.
 Item {
   id: view
 
   property var island: null
-  readonly property int pad: island.s(26)
+  readonly property int pad: island.s(22)
   readonly property var nextEvent: island.calendar.next
+  readonly property var desk: island.desktop
 
   SystemClock {
     id: clock
-    precision: SystemClock.Seconds
+    precision: SystemClock.Minutes
   }
 
+  function timeText(t) {
+    return Qt.formatDateTime(new Date(t), island.clockFormat.indexOf("AP") !== -1 ? "h:mm AP" : "HH:mm")
+  }
+
+  function sameDay(a, b) {
+    var x = new Date(a), y = new Date(b)
+    return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate()
+  }
+
+  // Status lines for the right column; only what is actually there.
+  readonly property var statusLines: {
+    var out = []
+    var w = desk.working
+    if (w.length > 0)
+      out.push({ text: "󰚩 " + (w.length === 1 ? "1 agent working" : w.length + " agents working"), color: island.accentColor })
+    var top = desk.topLimit
+    if (top && top.percent >= 0.75)
+      out.push({ text: "󰚩 " + Model.providerName(top.provider) + " " + Model.shortLimit(top.label) + " " + Math.round(top.percent * 100) + "%",
+                 color: top.percent >= 0.999 ? island.urgentColor : (top.percent >= 0.9 ? island.orangeColor : island.fgDim) })
+    if (desk.phone)
+      out.push({ text: (desk.phone.charging ? "󰂄 " : "󰄜 ") + desk.phone.name + " " + Math.round(desk.phone.charge) + "%",
+                 color: desk.phoneLow ? island.urgentColor : island.fgDim })
+    if (island.hasBattery)
+      out.push({ text: Model.batteryIcon(island.batteryLevel, island.charging) + " " + Model.percentText(island.batteryLevel),
+                 color: island.charging ? island.greenColor : (island.batteryLevel <= 0.2 ? island.urgentColor : island.fgDim) })
+    return out
+  }
+
+  // The agenda: opens the calendar.
   Column {
+    id: agenda
     x: view.pad
-    y: island.s(18)
-    spacing: island.s(1)
+    y: island.s(16)
+    width: parent.width - view.pad * 2 - status.width - island.s(16)
+    spacing: island.s(3)
 
     Text {
-      text: Qt.formatDateTime(clock.date, island.clockFormat)
+      width: parent.width
+      elide: Text.ElideRight
+      text: view.nextEvent ? "NEXT" + (view.nextEvent.source ? " · " + view.nextEvent.source.toUpperCase() : "") : "TODAY"
       textFormat: Text.PlainText
       renderType: Text.NativeRendering
       font.family: island.fontFamily
-      font.pixelSize: island.f(30)
-      font.weight: Font.Medium
-      font.letterSpacing: 0
-      font.features: { "tnum": 1 }
-      color: island.fg
+      font.pixelSize: island.f(10)
+      font.weight: Font.Bold
+      font.letterSpacing: island.s(1)
+      color: Qt.darker(island.fg, 1.4)
     }
 
-    // The date (or next meeting) opens the calendar.
     Text {
-      id: dateLine
-      MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: island.openCalendar()
-        onContainsMouseChanged: dateLine.font.underline = containsMouse
-      }
-      text: view.nextEvent
-        ? "󰃭  " + view.nextEvent.title + "  ·  " + Qt.formatDateTime(new Date(view.nextEvent.start), island.clockFormat.indexOf("AP") !== -1 ? "h:mm AP" : "HH:mm")
-        : Qt.formatDateTime(clock.date, "dddd, d MMMM")
-          + (island.calendar.todayAllDay.length > 0 ? "  ·  " + island.calendar.todayAllDay.join(", ") : "")
-      width: island.s(270)
+      id: headline
+      width: parent.width
+      text: view.nextEvent ? (view.nextEvent.title || "Busy") : Qt.formatDateTime(clock.date, "dddd, d MMMM")
       elide: Text.ElideRight
       textFormat: Text.PlainText
       renderType: Text.NativeRendering
       font.family: island.textFamily
-      font.pixelSize: island.f(12)
-      color: view.nextEvent ? island.accentColor : island.fgDim
-    }
-  }
-
-  Column {
-    anchors.right: parent.right
-    anchors.rightMargin: view.pad
-    y: island.s(20)
-    spacing: island.s(2)
-    visible: island.hasBattery
-
-    Text {
-      anchors.right: parent.right
-      text: Model.batteryIcon(island.batteryLevel, island.charging)
-      textFormat: Text.PlainText
-      renderType: Text.NativeRendering
-      font.family: island.fontFamily
-      font.pixelSize: island.f(26)
-      color: island.charging ? island.greenColor
-        : (island.batteryLevel <= 0.2 ? island.urgentColor : island.fg)
+      font.pixelSize: island.f(15)
+      font.weight: Font.DemiBold
+      font.underline: agendaMouse.containsMouse
+      color: island.fg
     }
 
     Text {
-      anchors.right: parent.right
-      text: Model.percentText(island.batteryLevel) + (island.charging ? " · charging" : "")
+      width: parent.width
+      text: {
+        var e = view.nextEvent
+        if (!e) {
+          var today = island.calendar.todayAllDay
+          return today.length > 0 ? "✦ " + today.join(" · ")
+            : (island.calendar.hasAny ? "Nothing scheduled" : "No calendar connected")
+        }
+        var when = (view.sameDay(e.start, clock.date) ? "" : Qt.formatDateTime(new Date(e.start), "ddd") + " ")
+          + view.timeText(e.start)
+        return when + " · " + Model.untilText(e.start, clock.date.getTime())
+      }
+      elide: Text.ElideRight
       textFormat: Text.PlainText
       renderType: Text.NativeRendering
       font.family: island.fontFamily
       font.pixelSize: island.f(11)
       font.features: { "tnum": 1 }
-      color: island.fgDim
+      color: view.nextEvent ? island.accentColor : island.fgDim
     }
+  }
+
+  MouseArea {
+    id: agendaMouse
+    x: agenda.x; y: agenda.y
+    width: agenda.width; height: agenda.height
+    hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
+    onClicked: island.openCalendar()
+  }
+
+  Column {
+    id: status
+    anchors.right: parent.right
+    anchors.rightMargin: view.pad
+    y: island.s(18)
+    spacing: island.s(3)
+
+    Repeater {
+      model: view.statusLines
+
+      Text {
+        required property var modelData
+        anchors.right: parent.right
+        text: modelData.text
+        textFormat: Text.PlainText
+        renderType: Text.NativeRendering
+        font.family: island.fontFamily
+        font.pixelSize: island.f(11)
+        font.features: { "tnum": 1 }
+        color: modelData.color
+      }
+    }
+  }
+
+  // A hairline between the glance and the controls, as in Omarchy panels.
+  Rectangle {
+    x: view.pad
+    width: parent.width - view.pad * 2
+    height: 1
+    anchors.bottom: chips.top
+    anchors.bottomMargin: island.s(12)
+    color: Util.alpha(island.fg, 0.1)
   }
 
   // One-tap timers and the stopwatch.
   Row {
+    id: chips
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     anchors.bottomMargin: island.s(16)

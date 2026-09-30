@@ -40,9 +40,21 @@ Item {
   }
 
   readonly property bool notch: false // No hardware-notch styling in this local variant.
-  readonly property bool idleHidden: setting("idle", "pill") === "hidden"
+  // "auto": show the resting island only when it has something to say
+  // (agents, next meeting, limits...), else a small lip under the bar;
+  // "pill": always the resting island; "hidden": nothing until live.
+  readonly property string idleMode: {
+    var m = String(setting("idle", "auto"))
+    return ["auto", "pill", "hidden"].indexOf(m) !== -1 ? m : "auto"
+  }
+  readonly property bool idleHidden: idleMode === "hidden"
+  readonly property bool idleQuiet: idleMode === "auto" && idleFace === "ticker" && idleSignals.length === 0
   readonly property real scaleFactor: Math.max(0.6, Math.min(2, Number(setting("scale", 1)) || 1))
-  readonly property int topMargin: s(Number(setting("topMargin", 6)))
+  // Same gap under the bar as Omarchy's own popups, unless set.
+  readonly property int topMargin: {
+    var v = setting("topMargin", null)
+    return v === null || !isFinite(Number(v)) ? Style.gapsOut : s(Number(v))
+  }
   readonly property bool reserveSpace: setting("reserveSpace", false) === true
   readonly property string monitorSetting: String(setting("monitor", "primary"))
   readonly property bool expandOnHover: setting("expandOnHover", false) === true
@@ -704,9 +716,13 @@ Item {
   Devices { island: root }
   Calendar { id: calendarSource; island: root }
   Activities { id: activitySource; island: root }
+  // Flux (agents, phone) and AI usage limits, read-only.
+  Desktop { id: desktopSource; island: root }
 
   readonly property var clocks: clockSource
   readonly property var calendar: calendarSource
+  readonly property var activityStore: activitySource
+  readonly property var desktop: desktopSource
   readonly property var activity: activitySource.current
 
   function endActivity(id) { activitySource.end(id, "") }
@@ -725,7 +741,7 @@ Item {
     calendarOpen = true
     userExpanded = true
     // No calendars yet: open straight into the field.
-    calendarAdding = calendarSource.sources.length === 0
+    calendarAdding = !calendarSource.hasAny
     if (!hovered) {
       collapseTimer.interval = 10000
       collapseTimer.restart()
@@ -883,26 +899,45 @@ Item {
     precision: SystemClock.Minutes
   }
 
-  readonly property var idleItems: {
+  // What the resting island can say that the bar above does not already
+  // show: working agents, the next meeting, a nearly spent AI limit, a
+  // phone or laptop running low, today's all-day events, Do Not Disturb.
+  // The time and date stay in the bar.
+  readonly property var idleSignals: {
     var items = []
-    var ampm = clockFormat.indexOf("AP") !== -1
-    // Qt only gives 12-hour "h" when AM/PM is in the same format, so format
-    // with it and drop the suffix: "10:57", not "22:57".
-    var time = ampm ? Qt.formatDateTime(idleClock.date, "h:mm AP").replace(/\s*[AaPp][Mm]$/, "")
-                    : Qt.formatDateTime(idleClock.date, "HH:mm")
-    items.push({ key: "time", text: time })
-    if (idleFace === "clock") return items
-    items.push({ key: "date", text: Qt.formatDateTime(idleClock.date, "ddd d") })
-    if (hasBattery)
-      items.push({ key: "battery", text: Model.batteryIcon(batteryLevel, charging) + " " + Model.percentText(batteryLevel),
-                   color: charging ? greenColor : (batteryLevel <= 0.2 ? urgentColor : "") })
+    var now = idleClock.date.getTime()
+    var working = desktop.working
+    if (working.length > 0)
+      items.push({ key: "agents", text: "󰚩 " + (working.length === 1 ? (working[0].title || working[0].agent) : working.length + " working"),
+                   color: accentColor })
     var next = calendar.next
-    if (next && next.start - idleClock.date.getTime() < 12 * 3600000 && next.start > idleClock.date.getTime())
-      items.push({ key: "event", text: "󰃭 " + Model.untilText(next.start, idleClock.date.getTime()), color: accentColor })
+    if (next && next.start - now < 12 * 3600000 && next.start > now)
+      items.push({ key: "event", text: "󰃭 " + Model.untilText(next.start, now), color: accentColor })
     var festivals = calendar.todayAllDay
     if (festivals.length > 0) items.push({ key: "festival", text: "✦ " + festivals[0], color: orangeColor })
+    var top = desktop.topLimit
+    if (top && top.percent >= 0.9)
+      items.push({ key: "limit", text: "󰚩 " + Model.providerName(top.provider) + " " + Model.shortLimit(top.label) + " " + Math.round(top.percent * 100) + "%",
+                   color: top.percent >= 0.999 ? urgentColor : orangeColor })
+    if (desktop.phoneLow)
+      items.push({ key: "phone", text: "󰁺 " + desktop.phone.name + " " + Math.round(desktop.phone.charge) + "%", color: urgentColor })
+    if (hasBattery && !charging && batteryLevel <= 0.2)
+      items.push({ key: "battery", text: Model.batteryIcon(batteryLevel, false) + " " + Model.percentText(batteryLevel), color: urgentColor })
     if (notifications.doNotDisturb) items.push({ key: "dnd", text: "󰂛 Silenced", color: orangeColor })
     return items
+  }
+
+  readonly property var idleItems: {
+    if (idleFace === "clock") {
+      var ampm = clockFormat.indexOf("AP") !== -1
+      // Qt only gives 12-hour "h" when AM/PM is in the same format, so format
+      // with it and drop the suffix: "10:57", not "22:57".
+      return [{ key: "time", text: ampm ? Qt.formatDateTime(idleClock.date, "h:mm AP").replace(/\s*[AaPp][Mm]$/, "")
+                                        : Qt.formatDateTime(idleClock.date, "HH:mm") }]
+    }
+    // Hovering a quiet island: a hint of what a click opens.
+    return idleSignals.length > 0 ? idleSignals
+      : [{ key: "open", text: "󰔛 Timer · 󰃭 " + Qt.formatDateTime(idleClock.date, "ddd d") }]
   }
 
   property int idleIndex: 0
@@ -956,6 +991,8 @@ Item {
       return { tone: accentColor, level: 0.6 }
     if (v === "idle" || v === "idle-hover")
       return { tone: accentColor, level: v === "idle-hover" ? 0.6 : 0.32 }
+    if (v === "tab")
+      return { tone: accentColor, level: 0.45 }
     return { tone: accentColor, level: 0.2 }
   }
   property int edgeSweep: 0
@@ -1010,6 +1047,7 @@ Item {
     notificationActions: notification !== null && notification.actions.length > 0,
     primary: primary,
     idleHidden: idleHidden,
+    idleQuiet: idleQuiet,
     hovered: hovered
   })
   readonly property var viewCounts: ({ inbox: inbox.length, outputs: audioOutputs.length })
@@ -1290,7 +1328,7 @@ Item {
       return JSON.stringify({
         view: root.view,
         geometry: { x: island.x, y: island.y, width: island.width, height: island.height,
-          exclusiveZone: win.exclusiveZone, corner: root.corner },
+          exclusiveZone: win.exclusiveZone, corner: root.corner, topMargin: root.topMargin, gapsOut: Style.gapsOut },
         palette: { background: String(root.surface), foreground: String(root.fg), accent: String(root.accentColor) },
         reducedMotion: Style.reduceMotion,
         primary: root.primary,
@@ -1306,6 +1344,8 @@ Item {
         stopwatch: root.clocks.stopwatchActive ? Math.round(root.clocks.stopwatchElapsed / 100) / 10 : null,
         activity: root.activity ? root.activity.id : null,
         nextEvent: root.calendar.next ? root.calendar.next.title : null,
+        idle: { mode: root.idleMode, quiet: root.idleQuiet, signals: root.idleSignals.map(function(i) { return i.key }) },
+        desktop: root.desktop.summary(),
         camera: root.cameraActive,
         outputs: root.audioOutputs.length,
         calendarTyping: root.calendarTyping,
@@ -1313,6 +1353,7 @@ Item {
           sources: root.calendar.sources.length,
           status: root.calendar.sources.map(function(l) { return root.calendar.statusOf(l) || "pending" }),
           upcoming: root.calendar.events.length,
+          omamail: root.calendar.omamailSources.length,
           justAdded: root.calendar.justAdded !== ""
         },
         notifications: {

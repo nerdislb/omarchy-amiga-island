@@ -1,8 +1,8 @@
 import QtQuick
 import qs.Commons
 
-// A script's live activity, compact: its glyph on the leading edge (in a
-// progress ring when it reports progress) and its value or percentage on
+// A live activity, compact: its glyph on the leading edge (in a progress
+// ring when it reports progress), its title, and its value or percentage on
 // the trailing edge.
 Item {
   id: view
@@ -38,6 +38,22 @@ Item {
   }
 
   Text {
+    anchors.left: parent.left
+    anchors.leftMargin: island.s(36)
+    anchors.right: valueText.left
+    anchors.rightMargin: island.s(8)
+    anchors.verticalCenter: parent.verticalCenter
+    text: view.item ? view.item.title : ""
+    elide: Text.ElideRight
+    textFormat: Text.PlainText
+    renderType: Text.NativeRendering
+    font.family: island.textFamily
+    font.pixelSize: island.f(12)
+    color: island.fg
+  }
+
+  Text {
+    id: valueText
     anchors.right: parent.right
     anchors.rightMargin: island.s(14)
     anchors.verticalCenter: parent.verticalCenter

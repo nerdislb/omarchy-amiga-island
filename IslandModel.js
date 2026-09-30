@@ -8,6 +8,9 @@
 // height so the shape stays a true capsule.
 var sizes = {
   "idle":          { w: 126, h: 32, r: 16 },
+  // Nothing to say: a small lip under the bar keeps the island reachable
+  // without covering the window below.
+  "tab":           { w: 64,  h: 8,  r: 0 },
   "idle-hover":    { w: 138, h: 34, r: 17 },
   "hidden":        { w: 0,   h: 32, r: 16 },
   "media":         { w: 300, h: 32, r: 16 },
@@ -20,7 +23,7 @@ var sizes = {
   "media-expanded": { w: 404, h: 186, r: 42 },
   "recording-expanded": { w: 392, h: 76, r: 34 },
   "recording-media-expanded": { w: 404, h: 145, r: 40 },
-  "idle-expanded": { w: 424, h: 150, r: 40 },
+  "idle-expanded": { w: 424, h: 172, r: 40 },
   "notification":  { w: 404, h: 78, r: 34 },
   "inbox":         { w: 200, h: 32, r: 16 },
   "timer":         { w: 236, h: 32, r: 16 },
@@ -71,7 +74,8 @@ function viewFor(state) {
       : (state.hud.layout === "toast" ? "hud-toast" : "hud-label"))
   if (state.primary) return state.primary
   if (state.idleHidden) return "hidden"
-  return state.hovered ? "idle-hover" : "idle"
+  if (state.hovered) return "idle-hover"
+  return state.idleQuiet ? "tab" : "idle"
 }
 
 // The opened inbox grows with its contents, up to four rows (then scrolls).
@@ -631,10 +635,9 @@ function osdHud(payload, show) {
 // Every setting and its default, in the README's order. The island writes
 // the missing ones into its shell.json entry so they can be edited in place.
 var defaultSettings = {
-  idle: "pill",
+  idle: "auto",
   idleFace: "ticker",
   scale: 1,
-  topMargin: 6,
   reserveSpace: false,
   keybind: false,
   monitor: "primary",
@@ -659,7 +662,14 @@ var defaultSettings = {
   charging: true,
   trackChange: true,
   recording: true,
-  mic: true
+  mic: true,
+  omamail: true,
+  flux: true,
+  agents: true,
+  agentDone: true,
+  phone: true,
+  aiLimits: true,
+  aiProviders: ["claude", "codex", "antigravity"]
 }
 
 function missingSettings(settings) {
@@ -680,4 +690,81 @@ function parseKeybind(text) {
     mask |= bit
   }
   return { mask: mask, key: parts[parts.length - 1] }
+}
+
+// OmaMail's unified calendar cache (~/.cache/omamail/calendar-bar.json):
+// { version, ranges: { "<scope>\n<start>:<end>": { startMs, endMs, at, events } } }.
+// Uses the freshest range that covers now and returns island events
+// ({ title, start, end, allDay, url, source }) plus the calendar names seen.
+function omamailEvents(text, now) {
+  var out = { events: [], sources: [], at: 0 }
+  var cache
+  try { cache = JSON.parse(String(text || "{}")) } catch (e) { return out }
+  var ranges = cache && cache.ranges && typeof cache.ranges === "object" ? cache.ranges : {}
+  var best = null
+  for (var key in ranges) {
+    var r = ranges[key]
+    if (!r || !Array.isArray(r.events)) continue
+    var covers = Number(r.startMs) <= now && now < Number(r.endMs)
+    var at = Number(r.at) || 0
+    if (!best || (covers && !best.covers) || (covers === best.covers && at > best.at))
+      best = { range: r, covers: covers, at: at }
+  }
+  if (!best) return out
+  var seen = {}
+  for (var i = 0; i < best.range.events.length; i++) {
+    var e = best.range.events[i]
+    if (!e || !e.start || !isFinite(Number(e.start.ms))) continue
+    if (String(e.status || "").toUpperCase() === "CANCELLED") continue
+    var allDay = e.start.allDay === true
+    var start = Number(e.start.ms)
+    var end = e.end && isFinite(Number(e.end.ms)) ? Number(e.end.ms) : 0
+    if (end <= start) end = start + (allDay ? 86400000 : 1800000)
+    var id = String(e.uid || e.summary || "") + "@" + start
+    if (seen[id]) continue
+    seen[id] = true
+    var source = String(e.sourceName || "")
+    out.events.push({
+      title: String(e.summary || ""),
+      start: start, end: end, allDay: allDay,
+      url: String(e.meetLink || "") || firstLink(e.location),
+      source: source
+    })
+    if (source && out.sources.indexOf(source) === -1) out.sources.push(source)
+  }
+  out.events.sort(function(a, b) { return a.start - b.start })
+  out.at = best.at
+  return out
+}
+
+// Omarchy agent usage files (~/.local/state/omarchy/agents/usage/<id>.json):
+// { id, limits: [{ label, percent (0..1), resetsAt }] } -> flat list.
+function usageLimits(text, fallbackId) {
+  var d
+  try { d = JSON.parse(String(text || "{}")) } catch (e) { return [] }
+  var id = String((d && d.id) || fallbackId || "")
+  var list = d && Array.isArray(d.limits) ? d.limits : []
+  var out = []
+  for (var i = 0; i < list.length; i++) {
+    var l = list[i]
+    var pct = Number(l && l.percent)
+    if (!isFinite(pct)) continue
+    out.push({ key: id + ":" + String(l.label || i), provider: id, label: String(l.title || l.label || ""),
+               percent: Math.max(0, pct), resetsAt: String(l.resetsAt || "") })
+  }
+  return out
+}
+
+var providerNames = { claude: "Claude", codex: "Codex", antigravity: "Gemini", fireworks: "Fireworks" }
+
+function providerName(id) {
+  return providerNames[id] || (id ? id.charAt(0).toUpperCase() + id.slice(1) : "")
+}
+
+// "Weekly (7-day)" -> "weekly", "Session (5-hour)" -> "5h", else as is.
+function shortLimit(label) {
+  var l = String(label || "")
+  if (/session|5.hour/i.test(l)) return "5h"
+  if (/week/i.test(l)) return /fable|opus|sonnet/i.test(l) ? l.replace(/\s*weekly/i, "") + " wk" : "weekly"
+  return l
 }
