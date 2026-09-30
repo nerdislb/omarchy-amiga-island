@@ -85,7 +85,7 @@ Item {
   }
   readonly property var working: agents.filter(function(a) { return a && a.status === "working" })
   // Agents waiting for input or approval (herdr "blocked"), minus the ones
-  // snoozed from the requester ("Später", 10 minutes).
+  // snoozed from the requester ("Later", 10 minutes).
   property var snoozed: ({})     // pane -> until (ms)
   // IPC demo ("attentionDemo on"): a fake waiting agent for testing the UI.
   property var demoBlocked: []

@@ -102,7 +102,7 @@ BarWidget {
     var c = island.clocks
     if (p === "attention" && island.attentionAgent) {
       var ag = island.attentionAgent, more = island.desktop.blocked.length - 1
-      return { glyph: "\u{f0026}", text: (ag.agent || "Agent") + " wartet" + (more > 0 ? " +" + more : ""),
+      return { glyph: "\u{f0026}", text: (ag.agent || "Agent") + " waiting" + (more > 0 ? " +" + more : ""),
                tone: island.orangeColor, progress: -1, guru: true }
     }
     if (p === "recording")

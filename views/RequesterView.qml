@@ -4,7 +4,7 @@ import qs.Commons
 // "Braucht dich": an agent is waiting for input or approval (herdr
 // "blocked"). Styled like an Intuition requester — title bar with drag
 // stripes, the question, and buttons left (positive) to right (negative).
-// Approving happens in the agent itself ("Öffnen"); the bar never answers
+// Approving happens in the agent itself ("Open"); the bar never answers
 // for you.
 Item {
   id: view
@@ -21,7 +21,7 @@ Item {
     var seen = island.desktop.seen[a.pane]
     if (!seen) return ""
     var m = Math.max(0, Math.round((Date.now() - seen.since) / 60000))
-    return m < 1 ? "gerade eben" : "seit " + m + " min"
+    return m < 1 ? "just now" : "for " + m + " min"
   }
 
   // title bar
@@ -38,7 +38,7 @@ Item {
     }
     Text {
       x: island.s(28); anchors.verticalCenter: parent.verticalCenter
-      text: "Agent wartet auf dich"
+      text: "An agent is waiting for you"
       font.family: view.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : island.fontFamily
       font.pixelSize: view.topaz ? 16 : island.f(13)
       font.bold: !view.topaz
@@ -69,12 +69,12 @@ Item {
     Text {
       width: parent.width
       elide: Text.ElideRight
-      text: view.agent ? (view.agent.title || "wartet auf eine Eingabe") : ""
+      text: view.agent ? (view.agent.title || "waiting for input") : ""
       font.family: island.textFamily; font.pixelSize: island.f(15); font.bold: true
       color: island.fg
     }
     Text {
-      text: view.since(view.agent) + (view.others.length ? "  ·  +" + view.others.length + " weitere" : "")
+      text: view.since(view.agent) + (view.others.length ? "  ·  +" + view.others.length + " more" : "")
       font.family: island.fontFamily; font.pixelSize: island.f(11)
       color: island.orangeColor
     }
@@ -89,9 +89,9 @@ Item {
 
     Repeater {
       model: [
-        { label: "Öffnen", action: "open", primary: true },
-        { label: "Später (10 min)", action: "snooze", primary: false },
-        { label: "Schließen", action: "close", primary: false }
+        { label: "Open", action: "open", primary: true },
+        { label: "Later (10 min)", action: "snooze", primary: false },
+        { label: "Dismiss", action: "close", primary: false }
       ]
       Rectangle {
         id: btn

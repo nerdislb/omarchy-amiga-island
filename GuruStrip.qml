@@ -4,7 +4,7 @@ import Quickshell.Wayland
 import qs.Commons
 
 // Guru Meditation: black strip with a blinking red frame under the bar,
-// "Software Failure. Klick für Diagnose." and the unit or program that
+// "Software Failure. Click for details." and the unit or program that
 // failed. Blinks three times (not with Reduced Motion), hides after a few
 // seconds; a click opens the details in a terminal. Red only for real
 // failures.
@@ -50,7 +50,7 @@ PanelWindow {
       spacing: Style.space(4)
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: "Software Failure.    Klick für Diagnose."
+        text: "Software Failure.    Click for details."
         color: "#ff2222"
         font.family: win.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : Style.font.family
         font.pixelSize: win.topaz ? 16 : Style.font.title
@@ -62,7 +62,7 @@ PanelWindow {
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
-        text: win.guru ? "Guru Meditation " + win.guru.code + (win.guru.kind === "crash" ? "  ·  Absturz" : "  ·  Dienst ausgefallen") : ""
+        text: win.guru ? "Guru Meditation " + win.guru.code + (win.guru.kind === "crash" ? "  ·  crash" : "  ·  service failed") : ""
         color: "#ff2222"
         font.family: win.topaz && topazFont.status === FontLoader.Ready ? topazFont.name : Style.font.family
         font.pixelSize: win.topaz ? 16 : Style.font.body
@@ -76,7 +76,7 @@ PanelWindow {
       cursorShape: Qt.PointingHandCursor
       onClicked: {
         var g = win.guru
-        if (g && g.command) Quickshell.execDetached(["xdg-terminal-exec", "--", "bash", "-lc", g.command + "; echo; read -n1 -p 'Taste drücken zum Schließen'"])
+        if (g && g.command) Quickshell.execDetached(["xdg-terminal-exec", "--", "bash", "-lc", g.command + "; echo; read -n1 -p 'Press any key to close'"])
         if (win.island) win.island.guru = null
       }
     }
