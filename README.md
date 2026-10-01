@@ -38,6 +38,8 @@ IPC (`amiga-island`): `set noteStyle workbench|bubble`, `set noteTopaz true|fals
 
 Notifications appear on the focused monitor, under the island of that monitor's bar. Live banners are not kept over a shell restart (the inbox is).
 
+**Fog look** (the Amiga Bar's `fog` option, a test; the island follows it from `shell.json`): cards are blobs of the bar's colour in one gooey fog layer (`views/FogLayer.qml`). A drop falls out of the bar under the island, swells into the card, the text fades in; waiting rows hang under it as smaller blobs; going back, the text fades, the blob shrinks to a drop and is pulled into the bar, leaving a faint fog for a moment. The island popup grows out of the bar the same way (`views/FogPanel.qml` inside its `KeyboardPanel`). With the Amiga Bar's A500 form the fog takes the case's darker front colour, and the island writes `~/.local/state/omarchy/amiga-island/bar-span.json` (its span per bar, whether a note is out and on which monitor) for the drive slot and the DF0 LED.
+
 ## Desktop integration (1.1)
 
 The island shows what the rest of this desktop already knows instead of keeping its own copy. All links are **read-only**; nothing is written to or sent from them.
