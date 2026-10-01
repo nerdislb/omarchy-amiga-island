@@ -17,6 +17,11 @@ import "IslandModel.js" as Model
 //   inbox   - if it was not clicked or closed, it waits in the inbox (a bell
 //             with a count in the island) until opened or cleared;
 //   gone    - clicking it jumps to the app, × clears it.
+//
+// In the bar (columnMode) the banners form a queue under the island instead
+// (NotificationColumn.qml): one open card, the others waiting as title rows,
+// a critical one first. Low urgency without buttons is only a still line in
+// the island. Inbox rows stay unread until opened or marked read.
 Item {
   id: service
 
@@ -34,8 +39,16 @@ Item {
   // Notification while its sender still holds it (for actions and updates).
   property var banners: []
   property var inbox: []
-  readonly property var current: banners.length > 0 ? banners[0] : null
+  property bool columnMode: false
+  readonly property var queue: Model.noteQueue(banners)
+  readonly property var current: columnMode ? queue.current : (banners.length > 0 ? banners[0] : null)
+  readonly property var waiting: columnMode ? queue.waiting : []
   readonly property int pending: Math.max(0, banners.length - 1)
+  // Low urgency in the bar: one still line in the island, then the inbox.
+  property var line: null
+  // The pointer rests on the column: the open card's time stands still.
+  property bool columnHovered: false
+  readonly property int unread: Model.unreadCount(inbox)
   property bool doNotDisturb: false
   property int serial: 0
   property bool tearingDown: false
@@ -61,6 +74,21 @@ Item {
   function receive(n) {
     n.tracked = true
     var entry = snapshot(n)
+    // A replaces_id update keeps its place (and key) in the queue, so the
+    // card changes its text in place instead of leaving and coming back.
+    var old = null
+    for (var i = 0; i < banners.length; i++) if (banners[i].ref === n) old = banners[i]
+    if (old) {
+      entry.key = old.key
+      entry.order = old.order
+      entry.shown = old.shown
+    }
+    if (line && line.ref === n) {
+      entry.key = line.key
+      line = entry
+      lineTimer.restart()
+      return
+    }
     // The sender withdrew it (read elsewhere, app closed it): drop it
     // everywhere without echoing a close back. Only a sender's own
     // CloseNotification counts; objects torn down with the shell (restart,
@@ -76,13 +104,47 @@ Item {
     inbox = inbox.filter(function(e) { return e.ref !== n })
     if (inbox.length !== before) saveInbox()
 
+    admit(entry, n)
+  }
+
+  function admit(entry, n) {
     if (doNotDisturb && !bypassesDnd(entry)) {
       // Silenced: no banner, straight to the inbox so nothing is missed.
-      if (Model.isEphemeralApp(entry.app)) n.tracked = false
+      if (Model.isEphemeralApp(entry.app)) { if (n) n.tracked = false }
       else addToInbox(entry)
       return
     }
+    if (columnMode && Model.isLineNote(entry)) {
+      showLine(entry)
+      return
+    }
     banners = [entry].concat(banners)
+  }
+
+  function showLine(entry) {
+    if (line) retireLine()
+    line = entry
+    lineTimer.restart()
+  }
+
+  // The line has been read: into the inbox, unless it was feedback noise.
+  function retireLine() {
+    var e = line
+    line = null
+    lineTimer.stop()
+    if (!e) return
+    if (Model.isEphemeralApp(e.app)) {
+      try { if (e.ref) e.ref.expire() } catch (x) {}
+      e.ref = null
+      return
+    }
+    addToInbox(e)
+  }
+
+  Timer {
+    id: lineTimer
+    interval: Model.lineDuration
+    onTriggered: service.retireLine()
   }
 
   function snapshot(n) {
@@ -118,12 +180,12 @@ Item {
   // Demo / testing: a notification with no live sender.
   function inject(fields) {
     serial += 1
-    banners = [{
+    admit({
       key: serial, ref: null, app: fields.app || "", appIcon: fields.appIcon || "", desktopEntry: "",
       summary: fields.summary || "", body: fields.body || "", image: fields.image || "",
-      glyph: fields.glyph || "", execArgv: "", critical: fields.critical === true, low: false,
+      glyph: fields.glyph || "", execArgv: "", critical: fields.critical === true, low: fields.low === true,
       timeout: 0, actions: fields.actions || [], time: Date.now()
-    }].concat(banners)
+    }, null)
   }
 
   // Omarchy's rule: its own action toasts, and bare `notify-send` criticals.
@@ -140,6 +202,7 @@ Item {
   }
 
   function find(key) {
+    if (line && line.key === key) return line
     for (var i = 0; i < banners.length; i++) if (banners[i].key === key) return banners[i]
     for (var j = 0; j < inbox.length; j++) if (inbox[j].key === key) return inbox[j]
     return null
@@ -150,6 +213,7 @@ Item {
   function remove(key, close) {
     var entry = find(key)
     if (!entry) return null
+    if (line && line.key === key) { line = null; lineTimer.stop() }
     banners = banners.filter(function(e) { return e.key !== key })
     var before = inbox.length
     inbox = inbox.filter(function(e) { return e.key !== key })
@@ -179,6 +243,7 @@ Item {
   }
 
   function addToInbox(entry) {
+    if (entry.unread === undefined) entry.unread = true
     // Newest arrival first, however long each banner happened to stay up.
     inbox = [entry].concat(inbox.filter(function(e) { return e.key !== entry.key }))
       .sort(function(a, b) { return b.time - a.time })
@@ -236,7 +301,30 @@ Item {
 
   function dismiss(key) { remove(key, "dismiss") }
 
+  // Column: a waiting row clicked opens next (ahead of older ones).
+  function promote(key) {
+    var entry = find(key)
+    if (!entry || entry === current || banners.indexOf(entry) === -1) return
+    entry.order = Model.frontOrder(banners)
+    banners = banners.slice()
+  }
+
+  // Requester "Later": into the inbox, unread, still marked critical.
+  function later(key) {
+    var entry = find(key)
+    if (!entry) return
+    banners = banners.filter(function(e) { return e.key !== key })
+    entry.unread = true
+    addToInbox(entry)
+  }
+
+  function markAllRead() {
+    inbox = inbox.map(function(e) { e.unread = false; return e })
+    saveInbox()
+  }
+
   function clearAll() {
+    if (line) remove(line.key, "dismiss")
     var keys = banners.concat(inbox).map(function(e) { return e.key })
     for (var i = 0; i < keys.length; i++) remove(keys[i], "dismiss")
     saveInbox()
@@ -245,19 +333,24 @@ Item {
   // The newest thing on screen, else the newest in the inbox (keybinds).
   function newestKey() {
     if (current) return current.key
+    if (line) return line.key
     return inbox.length > 0 ? inbox[0].key : -1
   }
 
-  // Banner timeout, paused while the pointer is on the island.
+  // Banner timeout, paused while the pointer is on the island (or column).
+  readonly property int currentDuration: columnMode ? Model.noteDuration(current, waiting.length) : durationFor(current)
   Timer {
     id: expiry
-    interval: Math.max(1000, service.durationFor(service.current))
-    running: service.current !== null && service.durationFor(service.current) > 0
-      && !(service.island && service.island.hovered)
+    interval: Math.max(1000, service.currentDuration)
+    running: service.current !== null && service.currentDuration > 0
+      && !(service.island && service.island.hovered) && !service.columnHovered
     onTriggered: if (service.current) service.retire(service.current.key)
   }
 
-  onCurrentChanged: if (expiry.running) expiry.restart()
+  onCurrentChanged: {
+    if (columnMode && current) current.shown = true
+    if (expiry.running) expiry.restart()
+  }
 
   // ------------------------------------------------------------- inbox file
   // Snapshots only: after a restart the senders are gone, so restored rows
@@ -268,7 +361,8 @@ Item {
       var image = e.image && e.image.indexOf("/tmp/") === -1 && e.image.indexOf("image://") !== 0 ? e.image : ""
       return {
         app: e.app, appIcon: e.appIcon, desktopEntry: e.desktopEntry, summary: e.summary,
-        body: e.body, image: image, glyph: e.glyph, execArgv: e.execArgv, critical: e.critical, time: e.time
+        body: e.body, image: image, glyph: e.glyph, execArgv: e.execArgv, critical: e.critical, time: e.time,
+        unread: e.unread !== false
       }
     })
     inboxFile.setText(JSON.stringify(rows) + "\n")
@@ -286,7 +380,7 @@ Item {
         key: serial, ref: null, app: r.app || "", appIcon: r.appIcon || "", desktopEntry: r.desktopEntry || "",
         summary: r.summary || "", body: r.body || "", image: r.image || "", glyph: r.glyph || "",
         execArgv: r.execArgv || "", critical: r.critical === true, low: false, timeout: 0,
-        actions: [], time: r.time || Date.now()
+        actions: [], time: r.time || Date.now(), unread: r.unread !== false
       })
     }
     inbox = restored.concat(inbox)

@@ -633,7 +633,10 @@ Item {
   // marker goes once its plugin is no longer listed as disabled.
   Component.onDestruction: Quickshell.execDetached(["sh", "-c",
     "sleep 4; c=\"$HOME/.config/omarchy/shell.json\"; " +
-    "jq -e --arg id \"$1\" '.plugins[]? | select(.id == $id)' \"$c\" >/dev/null 2>&1 && exit 0; " +
+    // Still configured (in plugins[] or in the bar layout, where the bar
+    // widget keeps its entry): only a reload, keep everything.
+    "jq -e --arg id \"$1\" '[.plugins[]?, ((.bar.layout // {}) | (.left // [])[], (.center // [])[], (.right // [])[])] " +
+    "| any(.[]; (type == \"object\" and .id == $id) or . == $id)' \"$c\" >/dev/null 2>&1 && exit 0; " +
     "for t in notifications osd; do " +
     "  [ -f \"$2/$t-takeover\" ] || continue; " +
     "  for try in 1 2 3; do \"$OMARCHY_PATH/bin/omarchy-plugin-enable\" \"omarchy.$t\" >/dev/null 2>&1 && break; sleep 2; done; " +
@@ -671,6 +674,33 @@ Item {
     id: notifications
     island: root
     active: root.notificationsReady
+    columnMode: root.barMode
+  }
+
+  // In the bar the island serves notifications as a column under itself
+  // (NotificationColumn.qml) with a bell segment beside the clock.
+  readonly property bool columnNotes: barMode && notificationsReady
+  readonly property var noteCurrent: notifications.current
+  readonly property var noteLine: notifications.line
+  readonly property int unreadCount: notifications.unread
+  readonly property bool doNotDisturb: notifications.doNotDisturb
+  function setDoNotDisturb(value) { notifications.setDoNotDisturb(value) }
+  function markAllRead() { notifications.markAllRead() }
+  NotificationColumn { island: root; service: notifications }
+
+  // An app's tone from the theme: mail blue, chats green, phone cyan,
+  // agents orange, updates yellow, else the accent; critical is urgent.
+  function noteTone(entry) {
+    if (!entry) return accentColor
+    if (entry.critical) return urgentColor
+    var tc = themeColors || {}
+    var app = String(entry.app || "") + " " + String(entry.desktopEntry || "")
+    if (/mail|thunderbird|geary/i.test(app)) return tc.blue || tc.color4 || accentColor
+    if (/whatsapp|signal|telegram|discord|slack|chat/i.test(app)) return greenColor
+    if (/flux|phone|pixel|kdeconnect/i.test(app)) return tc.cyan || tc.color6 || accentColor
+    if (/claude|codex|agent|openclaw|antigravity/i.test(app)) return orangeColor
+    if (/update|omarchy/i.test(app)) return tc.yellow || tc.color3 || orangeColor
+    return accentColor
   }
 
   readonly property var notification: notifications.current
@@ -1034,7 +1064,8 @@ Item {
     && (demo && demo.recording !== undefined ? demo.recording === true : recording)
   readonly property bool mediaActivity: hasMedia && (mediaPlaying || mediaLinger || (demoMedia !== null))
   readonly property bool micActivity: showMic && (demo && demo.mic !== undefined ? demo.mic === true : micActive)
-  readonly property bool inboxActivity: showInbox && inbox.length > 0
+  // In the bar the bell segment holds the inbox; the pill stays free.
+  readonly property bool inboxActivity: showInbox && inbox.length > 0 && !columnNotes
   readonly property bool timerActivity: clockSource.timerActive
   readonly property bool stopwatchActivity: clockSource.stopwatchActive
   readonly property bool scriptActivity: activitySource.current !== null
@@ -1110,7 +1141,10 @@ Item {
     }
     return v
   }
-  function slotSize(name) { return Model.sizeFor(name, viewCounts, notchSize) }
+  function slotSize(name) {
+    if (name === "inbox-expanded" && columnNotes) return Model.noteInboxSize(inbox.length)
+    return Model.sizeFor(name, viewCounts, notchSize)
+  }
   readonly property bool showBubble: secondary !== "" && !userExpanded && hud === null
 
   function showHud(next) {
@@ -1310,6 +1344,36 @@ Item {
     return "ok"
   }
 
+  function noteDemo(kind) {
+    var samples = {
+      mail: { app: "OmaMail", glyph: "\u{f01ee}", summary: "Lena Berger", body: "Termin morgen um 10? Ich bringe die Unterlagen mit." },
+      chat: { app: "WhatsApp", glyph: "\u{f05a3}", summary: "Familie (3)", body: "Mama: Kommst du am Sonntag zum Essen?" },
+      phone: { app: "Flux", glyph: "\u{f011c}", summary: "Pixel 9 Pro", body: "Akku 20 % · bitte laden" },
+      low: { app: "Claude Code", glyph: "\u{f06a9}", summary: "Agent fertig", body: "nbtiles · 320 Tests grün", low: true },
+      critical: { app: "OpenClaw", glyph: "\u{f0ecc}", summary: "Freigabe nötig", body: "beardibot möchte „git push origin main“ ausführen.",
+                  critical: true, actions: [{ id: "review", text: "Open to review" }] },
+      actions: { app: "Slack", glyph: "\u{f0369}", summary: "Design review", body: "Can you share the island screenshots?",
+                 actions: [{ id: "reply", text: "Reply" }, { id: "read", text: "Mark as Read" }] }
+    }
+    if (kind === "burst") {
+      notifications.inject(samples.chat); notifications.inject(samples.low); notifications.inject(samples.phone)
+      return "ok"
+    }
+    if (kind === "story") {
+      notifications.inject(samples.mail); notifications.inject(samples.chat); notifications.inject(samples.phone)
+      notifications.inject(samples.critical)
+      return "ok"
+    }
+    if (kind === "many") {
+      var list = [samples.mail, samples.chat, samples.phone, samples.actions, samples.mail]
+      for (var i = 0; i < list.length; i++) notifications.inject(list[i])
+      return "ok"
+    }
+    if (!samples[kind]) return "kinds: mail chat phone low critical actions burst story many"
+    notifications.inject(samples[kind])
+    return "ok"
+  }
+
   // Save "reserveSpace" in this plugin's shell.json entry; the settings
   // watcher above applies it.
   function setReserveSpace(next) {
@@ -1352,6 +1416,37 @@ Item {
     }
     function show(payloadJson: string): string { root.open(payloadJson); return "ok" }
     function demo(kind: string): string { return root.runDemo(kind) }
+    // Notification look in the bar: noteStyle workbench|bubble, noteTopaz
+    // true|false, notifications true|false (take over Omarchy's popups).
+    function set(key: string, value: string): string {
+      var v = String(value || "")
+      if (key === "noteStyle" && (v === "workbench" || v === "bubble")) { root.saveSettings({ noteStyle: v }); return v }
+      if ((key === "noteTopaz" || key === "notifications") && (v === "true" || v === "false")) {
+        var o = {}; o[key] = v === "true"; root.saveSettings(o); return v
+      }
+      return "usage: set noteStyle workbench|bubble · set noteTopaz true|false · set notifications true|false"
+    }
+    // Sample notifications through the real queue (no sender behind them).
+    function noteDemo(kind: string): string { return root.noteDemo(kind) }
+    function markRead(): string { root.markAllRead(); return "ok" }
+    // The column's buttons, for keybinds: open | dismiss | later | next |
+    // action:<id> on the open card (next pulls the first waiting row up).
+    function note(action: string): string {
+      var cur = notifications.current
+      var a = String(action || "")
+      if (a === "next") {
+        if (notifications.waiting.length === 0) return "none"
+        notifications.promote(notifications.waiting[0].key)
+        return "ok"
+      }
+      if (!cur) return "none"
+      if (a === "open") root.notificationOpen(cur.key)
+      else if (a === "dismiss") root.notificationDismiss(cur.key)
+      else if (a === "later") notifications.later(cur.key)
+      else if (a.indexOf("action:") === 0) root.notificationAction(cur.key, a.substring(7))
+      else return "usage: note open|dismiss|later|next|action:<id>"
+      return "ok"
+    }
 
     // Timer: "25m", "90s", "1h30m", "10:00", or plain minutes.
     function timer(duration: string, label: string): string {
@@ -1422,11 +1517,20 @@ Item {
         },
         notifications: {
           serving: root.notificationsReady,
+          wants: root.wantsNotifications,
+          requested: root.takeoverRequested.notifications === true,
           omarchyDisabled: root.omarchyNotificationsOff,
           showing: root.notification ? root.notification.summary : null,
           pending: root.notificationsPending,
           inbox: root.inbox.length,
-          dnd: notifications.doNotDisturb
+          dnd: notifications.doNotDisturb,
+          column: root.columnNotes,
+          style: String(root.setting("noteStyle", "workbench")),
+          topaz: root.setting("noteTopaz", true) !== false,
+          current: root.noteCurrent ? root.noteCurrent.summary : null,
+          waiting: notifications.waiting.map(function(e) { return e.summary }),
+          line: root.noteLine ? root.noteLine.summary : null,
+          unread: notifications.unread
         },
         screen: win.screen ? win.screen.name : null
       })

@@ -19,6 +19,9 @@ import "bridge" as Bridge
 //   left click    open / close the island
 //   right click   the calendar
 //   middle click  play / pause
+//
+// When the island serves notifications, a bell segment follows the clock:
+//   left click    the inbox      right click   do not disturb
 BarWidget {
   id: root
   moduleName: "nerdibeard.amiga-island"
@@ -59,6 +62,19 @@ BarWidget {
     Qt.callLater(function() { root.popoutSwitchClosing = false })
   }
 
+  // Where the notification column hangs (x in the bar window = on screen).
+  function anchorX() {
+    var p = button.mapToItem(null, button.width / 2, 0)
+    return p ? p.x : 0
+  }
+
+  function toggleInbox() {
+    if (!live) return
+    if (opened && island.inboxOpen) { close(); return }
+    Bridge.IslandBus.owner = root
+    island.openInbox()
+  }
+
   readonly property real openPanelIndicatorWidth: clockLabel.implicitWidth
   readonly property real openPanelIndicatorHeight: Math.max(Style.space(10), Math.round(Style.bar.iconSlot * 0.55))
 
@@ -89,6 +105,11 @@ BarWidget {
   readonly property var segment: {
     if (!live || island.userExpanded) return null
     var h = island.hud
+    // Low urgency: one still line, the island's own voice for small news.
+    var ln = island.noteLine
+    if (ln && !h)
+      return { glyph: ln.glyph || "\u{f02fc}", text: [ln.summary, ln.body].filter(function(t) { return !!t }).join(" · ") || ln.app,
+               tone: island.noteTone(ln), progress: -1, wide: true }
     if (h) {
       if (h.layout === "toast")
         return { glyph: h.icon || "󰂚", text: (h.title || "") + (h.body ? " · " + h.body : ""), tone: h.color || island.accentColor, progress: -1 }
@@ -137,12 +158,16 @@ BarWidget {
   property var shownSegment: null
   onSegmentChanged: if (segment) shownSegment = segment
 
-  implicitWidth: button.implicitWidth
+  readonly property bool bellShown: live && island.columnNotes
+  implicitWidth: button.implicitWidth + (bellShown ? bell.implicitWidth : 0)
   implicitHeight: button.implicitHeight
 
   WidgetButton {
     id: button
-    anchors.fill: parent
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: implicitWidth
     bar: root.bar
     fontFamily: root.island && root.island.pixelFont ? root.island.pixelFamily : (bar ? bar.fontFamily : Style.font.family)
     fontSize: root.island && root.island.pixelFont ? 16 : Style.font.body
@@ -277,7 +302,7 @@ BarWidget {
           Text {
             visible: !(chip.seg && chip.seg.ticker) && text !== ""
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.min(implicitWidth, Style.space(240))
+            width: Math.min(implicitWidth, Style.space(chip.seg && chip.seg.wide ? 380 : 240))
             text: chip.seg ? chip.seg.text : ""
             elide: Text.ElideRight
             textFormat: Text.PlainText
@@ -318,6 +343,108 @@ BarWidget {
           }
           Behavior on width { NumberAnimation { duration: Style.duration(240) } }
         }
+      }
+    }
+  }
+
+  // A card hangs from the island: a 2 px line in its tone along the bottom
+  // of the clock; it arrives as a short copper run (not with reduced motion).
+  Item {
+    id: toneLine
+    readonly property var entry: root.live && root.island.columnNotes ? root.island.noteCurrent : null
+    readonly property int key: entry ? entry.key : -1
+    property real run: 1
+    x: button.x + Style.space(4)
+    width: button.width - Style.space(8)
+    height: Math.max(1, Style.space(2))
+    anchors.bottom: button.bottom
+    visible: entry !== null
+    onKeyChanged: if (key >= 0) { run = Style.reduceMotion ? 1 : 0; if (!Style.reduceMotion) runAnim.restart() }
+    NumberAnimation { id: runAnim; target: toneLine; property: "run"; to: 1; duration: 380; easing.type: Easing.Linear }
+    Rectangle {
+      width: parent.width
+      height: parent.height
+      color: root.island ? root.island.noteTone(toneLine.entry) : Color.accent
+      opacity: toneLine.run >= 1 ? 0.95 : 0
+    }
+    Rectangle {
+      visible: toneLine.run < 1
+      width: parent.width * toneLine.run
+      height: parent.height
+      gradient: Gradient {
+        orientation: Gradient.Horizontal
+        GradientStop { position: 0.0; color: root.island ? root.island.accentColor : Color.accent }
+        GradientStop { position: 0.6; color: root.island && root.island.themeColors.yellow ? root.island.themeColors.yellow : Color.accent }
+        GradientStop { position: 1.0; color: root.island ? root.island.noteTone(toneLine.entry) : Color.accent }
+      }
+    }
+  }
+
+  // The bell segment: unread count (Topaz digits), do-not-disturb state.
+  WidgetButton {
+    id: bell
+    visible: root.bellShown
+    anchors.left: button.right
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: implicitWidth
+    bar: root.bar
+    text: ""
+    hasVisualContent: true
+    labelVisible: false
+    useActiveColor: false
+    active: root.opened && root.island.inboxOpen
+    horizontalMargin: 6
+    fixedWidth: bellRow.width + Style.spaceReal(6) * 2
+    tooltipText: ""
+    onPressed: function(b) {
+      if (!root.live) return
+      if (b === Qt.RightButton) root.island.setDoNotDisturb(!root.island.doNotDisturb)
+      else root.toggleInbox()
+    }
+
+    readonly property bool dnd: root.live && root.island.doNotDisturb
+    readonly property int unread: root.live ? root.island.unreadCount : 0
+    readonly property bool topazDigits: root.live && root.island.setting("noteTopaz", true) !== false
+
+    // Workbench groove between the clock and the bell.
+    Rectangle { x: 0; anchors.verticalCenter: parent.verticalCenter; width: 1; height: parent.height * 0.6; color: Qt.darker(Color.bar.background, 1.6) }
+    Rectangle { x: 1; anchors.verticalCenter: parent.verticalCenter; width: 1; height: parent.height * 0.6; color: Util.alpha(button.foreground, 0.18) }
+
+    Row {
+      id: bellRow
+      anchors.centerIn: parent
+      spacing: Style.space(4)
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: bell.dnd ? "\u{f00a0}" : "\u{f009a}"
+        textFormat: Text.PlainText
+        renderType: Text.NativeRendering
+        font.family: button.fontFamily
+        font.pixelSize: button.fontSize
+        color: bell.dnd ? (root.island ? root.island.accentColor : Color.accent)
+          : bell.unread > 0 ? button.foreground : Util.alpha(button.foreground, 0.55)
+      }
+      Text {
+        visible: bell.dnd
+        anchors.verticalCenter: parent.verticalCenter
+        text: "DND"
+        textFormat: Text.PlainText
+        renderType: Text.NativeRendering
+        font.family: button.fontFamily
+        font.pixelSize: Math.round(button.fontSize * 0.8)
+        font.bold: true
+        color: root.island ? root.island.accentColor : Color.accent
+      }
+      Text {
+        visible: bell.unread > 0
+        anchors.verticalCenter: parent.verticalCenter
+        text: String(bell.unread)
+        textFormat: Text.PlainText
+        renderType: Text.NativeRendering
+        font.family: bell.topazDigits && root.island ? root.island.pixelFamily : button.fontFamily
+        font.pixelSize: bell.topazDigits ? 16 : button.fontSize
+        color: bell.dnd ? Util.alpha(button.foreground, 0.7) : (root.island ? root.island.accentColor : Color.accent)
       }
     }
   }
@@ -364,7 +491,7 @@ BarWidget {
         case "media-expanded": return mediaView
         case "recording-expanded":
         case "recording-media-expanded": return recordingView
-        case "inbox-expanded": return inboxView
+        case "inbox-expanded": return root.island && root.island.columnNotes ? noteInboxView : inboxView
         case "clock-expanded": return clockView
         case "activity-expanded": return activityView
         case "attention-expanded": return requesterView
@@ -381,6 +508,7 @@ BarWidget {
   Component { id: mediaView; MediaExpanded { island: root.island } }
   Component { id: recordingView; RecordingExpanded { island: root.island } }
   Component { id: inboxView; InboxView { island: root.island } }
+  Component { id: noteInboxView; NoteInbox { island: root.island } }
   Component { id: clockView; ClockExpanded { island: root.island } }
   Component { id: activityView; ActivityExpanded { island: root.island } }
   Component { id: requesterView; RequesterView { island: root.island } }

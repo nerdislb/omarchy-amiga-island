@@ -668,6 +668,11 @@ var defaultSettings = {
   camera: true,
   calendar: true,
   notifications: false,
+  // How notifications look when the island serves them in the bar:
+  // "workbench" (window head + body) or "bubble" (speech bubble with a notch).
+  noteStyle: "workbench",
+  // Card heads (app name, INBOX, REQUEST) in the Topaz pixel font.
+  noteTopaz: true,
   inbox: true,
   osd: false,
   volume: false,
@@ -800,4 +805,55 @@ function amigaBarOptions(cfg) {
   for (var i = 0; i < list.length; i++)
     if (list[i] && list[i].id === "nerdibeard.amiga-bar" && list[i].options) return list[i].options
   return {}
+}
+
+// ---------------------------------------------------------------- notes column
+// In the bar the island shows notifications as one column under itself:
+// exactly one open card, the others waiting as title rows. A critical one
+// (a requester) goes first and pauses the open card; otherwise arrival order.
+function noteQueue(banners) {
+  var list = (banners || []).filter(function(e) { return !!e }).slice()
+    .sort(function(a, b) { return noteSeq(a) - noteSeq(b) })
+  var crit = list.filter(function(e) { return e.critical })
+  var current = crit.length ? crit[0] : (list.length ? list[0] : null)
+  var rest = list.filter(function(e) { return e !== current })
+  var waiting = rest.filter(function(e) { return e.critical })
+    .concat(rest.filter(function(e) { return !e.critical }))
+  return { current: current, waiting: waiting }
+}
+
+// Queue position: arrival (key), unless the user pulled a row to the front.
+function noteSeq(e) { return e.order !== undefined && e.order !== null ? e.order : e.key }
+function frontOrder(banners) {
+  var min = Infinity
+  for (var i = 0; i < (banners || []).length; i++) min = Math.min(min, noteSeq(banners[i]))
+  return (isFinite(min) ? min : 0) - 1
+}
+
+// Low urgency without buttons never becomes a card: one still line in the
+// island, then the inbox.
+function isLineNote(entry) {
+  return !!entry && entry.low === true && !entry.critical && !(entry.actions && entry.actions.length)
+}
+
+// Omarchy's stand times (normal 8 s, a sender's longer timeout up to 30 s,
+// critical until handled); with others waiting the open card hands over
+// after 4 s.
+function noteDuration(entry, waitingCount) {
+  if (!entry || entry.critical) return 0
+  var ms = Math.min(30000, Math.max(entry.low ? 5000 : 8000, entry.timeout > 0 ? entry.timeout : 0))
+  return waitingCount > 0 ? Math.min(ms, 4000) : ms
+}
+var lineDuration = 3500
+var maxWaitingRows = 2
+
+function unreadCount(inbox) {
+  return (inbox || []).filter(function(e) { return e && e.unread !== false }).length
+}
+
+// Inbox popup in the bar: head, toolbar, up to five rows, the DND footer.
+var noteInboxRow = 52
+function noteInboxSize(count) {
+  var rows = Math.max(1, Math.min(5, count))
+  return { w: 480, h: 28 + 34 + rows * noteInboxRow + 44, r: 0 }
 }
