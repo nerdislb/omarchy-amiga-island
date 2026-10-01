@@ -15,42 +15,52 @@ Item {
   // Where the blurred alpha is cut, and how soft the cut is.
   property real threshold: 0.5
   property real softness: 0.12
-  default property alias shapes: source.data
+  default property alias shapes: shapeSource.data
 
   Item {
-    id: source
+    id: shapeSource
     anchors.fill: parent
     visible: false
-    layer.enabled: true
+    layer.enabled: fog.visible
   }
 
-  MultiEffect {
-    id: blurred
+  // Built only while the layer is visible, so a fog switched on later
+  // starts like one that was on from the start. The hidden shape layer
+  // repaints on geometry changes, not when a shape is merely shown or
+  // hidden: change a shape's size instead of its visibility.
+  Loader {
     anchors.fill: parent
-    source: source
-    visible: false
-    layer.enabled: true
-    autoPaddingEnabled: false
-    blurEnabled: true
-    blur: 1
-    blurMax: fog.blurMax
-  }
+    active: fog.visible
+    sourceComponent: Item {
+      MultiEffect {
+        id: blurred
+        anchors.fill: parent
+        source: shapeSource
+        visible: false
+        layer.enabled: true
+        autoPaddingEnabled: false
+        blurEnabled: true
+        blur: 1
+        blurMax: fog.blurMax
+      }
 
-  Rectangle {
-    id: fill
-    anchors.fill: parent
-    visible: false
-    layer.enabled: true
-    color: fog.color
-  }
+      Rectangle {
+        id: fill
+        anchors.fill: parent
+        visible: false
+        layer.enabled: true
+        color: fog.color
+      }
 
-  MultiEffect {
-    anchors.fill: parent
-    source: fill
-    autoPaddingEnabled: false
-    maskEnabled: true
-    maskSource: blurred
-    maskThresholdMin: fog.threshold
-    maskSpreadAtMin: fog.softness
+      MultiEffect {
+        anchors.fill: parent
+        source: fill
+        autoPaddingEnabled: false
+        maskEnabled: true
+        maskSource: blurred
+        maskThresholdMin: fog.threshold
+        maskSpreadAtMin: fog.softness
+      }
+    }
   }
 }

@@ -178,7 +178,8 @@ Item {
       Item {
         id: ghostLayer
         anchors.fill: parent
-        layer.enabled: column.fog
+        // enabled only while shown: a MultiEffect created hidden never draws
+        layer.enabled: ghostLayer.visible
         layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: 48; autoPaddingEnabled: false }
       }
       FogLayer {
@@ -242,10 +243,10 @@ Item {
 
           // This row's blob, in the column's fog layer (moved there below);
           // the first one also reaches up into the bar, where the fog layer
-          // melts it into the bar's edge.
+          // melts it into the bar's edge. Shapes only change size: the fog
+          // layer does not repaint for a shape that is merely shown/hidden.
           Rectangle {
             id: blob
-            visible: column.fog && slot.blobH > 0.5
             x: column.fogMargin + (column.cardW - slot.blobW) / 2
             y: column.fogMargin + stack.y + slot.y + slot.fogGap
             width: slot.blobW
@@ -255,10 +256,9 @@ Item {
           }
           Rectangle {
             id: neck
-            visible: column.fog && slot.index === 0 && slot.presence > 0
             x: blob.x - column.island.s(14)
             y: 0
-            width: slot.blobW + column.island.s(28)
+            width: slot.index === 0 && slot.presence > 0 ? slot.blobW + column.island.s(28) : 0
             height: column.fogMargin + stack.y + 1
             color: "white"
           }
