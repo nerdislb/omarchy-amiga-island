@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
@@ -14,6 +15,12 @@ import "bridge" as Bridge
 // the head slides out of the edge, then the body unrolls; back the same way.
 // Reduced motion: the same moments, faded instead of moved.
 //
+// Fog look (Amiga Bar option `fog`, a test): the cards are blobs of the
+// bar's colour in one gooey fog layer. A drop falls out of the bar, grows
+// into the card, then the text fades in; going back, the text fades, the
+// blob shrinks to a drop and is pulled back into the bar, leaving a faint
+// fog for a moment. Waiting rows hang under it as smaller blobs.
+//
 // Only the cards take input; the strip never takes keyboard focus.
 Item {
   id: column
@@ -22,10 +29,19 @@ Item {
   property var service: null
 
   readonly property bool serving: !!island && island.columnNotes
-  readonly property bool bubble: !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
+  readonly property bool fog: !!island && !!island.amigaOptions && island.amigaOptions.fog === "on"
+  readonly property bool bubble: !fog && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
   readonly property bool topaz: !!island && island.setting("noteTopaz", true) !== false
   readonly property real cardW: island ? island.s(480) : 480
   readonly property bool reduced: Style.reduceMotion
+
+  // Fog geometry: the layer reaches `fogMargin` past the cards on every
+  // side (and up into the bar), so the blur never runs into its edge.
+  readonly property color fogColor: Color.bar.background
+  readonly property real fogMargin: 32
+  readonly property real fogGap: island ? island.s(8) : 8
+  readonly property real dropW: island ? island.s(52) : 52
+  readonly property real dropH: island ? island.s(28) : 28
 
   // What belongs on screen, top to bottom: the open card, two waiting rows,
   // "+N" for the rest.
@@ -150,11 +166,36 @@ Item {
 
     mask: Region { item: stack }
 
+    // Fog look: residual fog (blurred, faint) under the gooey blobs.
+    Item {
+      id: fogArea
+      visible: column.fog
+      x: stack.x - column.fogMargin
+      y: -column.fogMargin
+      width: column.cardW + column.fogMargin * 2
+      height: win.height + column.fogMargin
+
+      Item {
+        id: ghostLayer
+        anchors.fill: parent
+        layer.enabled: column.fog
+        layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: 48; autoPaddingEnabled: false }
+      }
+      FogLayer {
+        anchors.fill: parent
+        color: column.fogColor
+        blurMax: 24
+        threshold: 0.4
+        softness: 0.5
+        Item { id: fogShapes; anchors.fill: parent }
+      }
+    }
+
     Column {
       id: stack
       readonly property real dpr: win.devicePixelRatio > 0 ? win.devicePixelRatio : 1
       x: Math.round(Math.max(0, Math.min(win.width - width, column.anchorX - width / 2)) * dpr) / dpr
-      y: 0
+      y: column.fog ? 2 : 0
       width: column.cardW
       spacing: 0
 
@@ -174,6 +215,7 @@ Item {
           required property bool leaving
 
           readonly property var entry: kind === "note" ? column.entryOf(key) : null
+          readonly property bool queued: !!column.service && column.service.banners.some(function(b) { return b.key === slot.key })
           readonly property bool open: !leaving && kind === "note" && !!column.service
             && !!column.service.current && column.service.current.key === key
           // presence: 0 = still inside the bar (or under the row above), 1 = out
@@ -184,24 +226,68 @@ Item {
           property real spread: 1
           property real fade: 1
           property bool arrived: false
+          // Fog look: the text, faded in once the blob has grown.
+          property real ink: 1
+
+          // Fog: a drop (dropW × dropH) grows into the row, then the body.
+          readonly property real fogGap: index > 0 ? column.fogGap : 0
+          readonly property real blobW: column.dropW + (column.cardW - column.dropW) * spread
+          readonly property real blobH: presence * column.dropH * (1 - spread) + note.rowH * spread
+            + note.bodyH * Math.max(0, Math.min(1, openness))
 
           width: column.cardW
-          height: Math.max(0, note.visibleH - (1 - presence) * note.rowH)
+          height: column.fog ? fogGap + blobH
+            : Math.max(0, note.visibleH - (1 - presence) * note.rowH)
           clip: true
+
+          // This row's blob, in the column's fog layer (moved there below);
+          // the first one also reaches up into the bar, where the fog layer
+          // melts it into the bar's edge.
+          Rectangle {
+            id: blob
+            visible: column.fog && slot.blobH > 0.5
+            x: column.fogMargin + (column.cardW - slot.blobW) / 2
+            y: column.fogMargin + stack.y + slot.y + slot.fogGap
+            width: slot.blobW
+            height: slot.blobH
+            radius: column.island.s(10)
+            color: "white"
+          }
+          Rectangle {
+            id: neck
+            visible: column.fog && slot.index === 0 && slot.presence > 0
+            x: blob.x - column.island.s(14)
+            y: 0
+            width: slot.blobW + column.island.s(28)
+            height: column.fogMargin + stack.y + 1
+            color: "white"
+          }
+          // Residual fog where the card was, fading after it left.
+          Rectangle {
+            id: ghost
+            visible: column.fog && opacity > 0
+            opacity: 0
+            radius: column.island.s(12)
+            color: column.fogColor
+          }
 
           NoteCard {
             id: note
-            y: -(1 - slot.presence) * rowH
+            y: column.fog ? slot.fogGap : -(1 - slot.presence) * rowH
             width: parent.width
             island: column.island
             entry: slot.entry
             kind: slot.kind
             moreCount: column.hiddenCount
             bubble: column.bubble
+            fog: column.fog
+            textIn: slot.ink
             topaz: column.topaz
             first: slot.index === 0
             active: slot.open
-            stateLabel: slot.open ? "now" : (slot.entry && slot.entry.shown ? "paused" : "next")
+            // A row that is going (dismissed, answered) keeps no label rather
+            // than flipping to "paused" while it rolls away.
+            stateLabel: slot.open ? "now" : !slot.queued ? "" : (slot.entry && slot.entry.shown ? "paused" : "next")
             openness: slot.openness
             spread: slot.spread
             tone: column.island.noteTone(slot.entry)
@@ -224,12 +310,47 @@ Item {
           // The target is set here, not bound: a binding to `open` may not
           // have updated yet when onOpenChanged starts the animation.
           function run(anim) {
-            arrive.stop(); unroll.stop(); depart.stop()
+            arrive.stop(); unroll.stop(); depart.stop(); arriveFog.stop(); departFog.stop()
             if (anim === unroll) {
               unroll.to = open ? 1 : 0
               unroll.duration = open ? 220 : 180
+              // interrupted the fog arrival before its text faded in
+              if (column.fog) ink = 1
             }
             anim.start()
+          }
+          // Fog: a drop, then it swells into the row (eased, liquid rather
+          // than mechanical), the body follows, the text fades in last.
+          SequentialAnimation {
+            id: arriveFog
+            NumberAnimation { target: slot; property: "presence"; to: 1; duration: 190; easing.type: Easing.OutQuad }
+            NumberAnimation { target: slot; property: "spread"; to: 1; duration: 280; easing.type: Easing.OutCubic }
+            ScriptAction { script: { slot.arrived = true; if (slot.open) { unroll.to = 1; unroll.duration = 200; unroll.start() } } }
+            PauseAnimation { duration: slot.open ? 180 : 0 }
+            NumberAnimation { target: slot; property: "ink"; to: 1; duration: 140; easing.type: Easing.Linear }
+          }
+          // Back: text first, then the blob shrinks to a drop (a faint fog
+          // stays where it was) and the drop is pulled into the bar.
+          SequentialAnimation {
+            id: departFog
+            NumberAnimation { target: slot; property: "ink"; to: 0; duration: 110; easing.type: Easing.Linear }
+            ScriptAction {
+              script: {
+                ghost.x = blob.x; ghost.y = blob.y; ghost.width = blob.width; ghost.height = blob.height
+                ghost.opacity = 0.16
+              }
+            }
+            ParallelAnimation {
+              SequentialAnimation {
+                ParallelAnimation {
+                  NumberAnimation { target: slot; property: "openness"; to: 0; duration: 220; easing.type: Easing.InOutCubic }
+                  NumberAnimation { target: slot; property: "spread"; to: 0; duration: 220; easing.type: Easing.InOutCubic }
+                }
+                NumberAnimation { target: slot; property: "presence"; to: 0; duration: 170; easing.type: Easing.InQuad }
+              }
+              NumberAnimation { target: ghost; property: "opacity"; to: 0; duration: 700; easing.type: Easing.InQuad }
+            }
+            ScriptAction { script: column.finishLeave(slot.key) }
           }
           SequentialAnimation {
             id: arrive
@@ -253,10 +374,16 @@ Item {
           }
 
           Component.onCompleted: {
+            // The fog shapes live in the column's fog layers (they leave
+            // with this row: it still owns them).
+            blob.parent = fogShapes; neck.parent = fogShapes; ghost.parent = ghostLayer
             if (column.reduced) {
-              presence = 1; spread = 1; arrived = true; fade = 0
+              presence = 1; spread = 1; arrived = true; fade = 0; ink = 1
               openness = open ? 1 : 0
               fadeIn.start()
+            } else if (column.fog) {
+              spread = 0; ink = 0
+              run(arriveFog)
             } else {
               spread = column.bubble ? 0 : 1
               run(arrive)
@@ -272,10 +399,10 @@ Item {
               else { fadeOut.stop(); fade = 1 }
               return
             }
-            if (leaving) run(depart)
+            if (leaving) run(column.fog ? departFog : depart)
             else {
               // Back before it was gone: finish whatever its arrival left.
-              presence = 1; spread = 1; arrived = true
+              presence = 1; spread = 1; arrived = true; ink = 1; ghost.opacity = 0
               run(unroll)
             }
           }

@@ -9,7 +9,9 @@ import qs.Ui as Ui
 // card body, in Omarchy's popup frame; the body rolls out like a blind.
 // Bubble: a speech bubble whose notch flows out of the bar edge; a strip
 // spreads from the notch, then the body rolls down.
-// The column drives `openness` (0 = title row, 1 = open) and `spread`.
+// Fog: no surface of its own — the column draws the card as a blob in its
+// fog layer; the text sits on it and fades with `textIn`.
+// The column drives `openness` (0 = title row, 1 = open), `spread`, `textIn`.
 Item {
   id: card
 
@@ -18,6 +20,8 @@ Item {
   property string kind: "note"          // note | more
   property int moreCount: 0
   property bool bubble: false
+  property bool fog: false
+  property real textIn: 1               // fog: text opacity
   property bool topaz: true
   property bool first: false            // hangs from the island (bubble: notch)
   property bool active: false           // the open card, not a waiting row
@@ -33,6 +37,8 @@ Item {
   signal action(string id)
 
   readonly property bool critical: !!(entry && entry.critical) && kind === "note"
+  // Bubble and fog share the soft controls (no gadget, rounded buttons).
+  readonly property bool soft: bubble || fog
   readonly property real frame: Math.max(1, island.s(2))
   readonly property real notchH: bubble && first ? island.s(11) : 0
   readonly property real headH: island.s(26)
@@ -61,6 +67,7 @@ Item {
   // ------------------------------------------------------------ surface
   Ui.BorderSurface {
     id: surface
+    visible: !card.fog
     x: card.shapeX
     y: card.notchH
     width: card.shapeW
@@ -113,12 +120,12 @@ Item {
     width: card.shapeW - card.frame * 2
     height: card.headH
     clip: true
-    opacity: card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
+    opacity: card.fog ? card.textIn : card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
 
     // Workbench title bar: flat fill with a 1 px bevel.
     Rectangle {
       anchors.fill: parent
-      visible: !card.bubble
+      visible: !card.soft
       color: card.headFill
       Rectangle { width: parent.width; height: 1; color: card.bevelLight }
       Rectangle { width: 1; height: parent.height; color: card.bevelLight }
@@ -129,9 +136,9 @@ Item {
     // Close gadget (Workbench) / shield (requester).
     Item {
       id: gadget
-      width: card.bubble ? 0 : island.s(26)
+      width: card.soft ? 0 : island.s(26)
       height: parent.height
-      visible: !card.bubble
+      visible: !card.soft
       Rectangle {
         visible: !card.critical
         anchors.centerIn: parent
@@ -162,7 +169,7 @@ Item {
     }
 
     Row {
-      x: gadget.width + island.s(card.bubble ? 12 : 8)
+      x: gadget.width + island.s(card.soft ? 12 : 8)
       width: parent.width - x - stateText.width - bubbleClose.width - island.s(24)
       anchors.verticalCenter: parent.verticalCenter
       spacing: island.s(10)
@@ -202,7 +209,7 @@ Item {
     // Bubbles have no gadget: a small × on the right instead.
     Text {
       id: bubbleClose
-      visible: card.bubble && !card.critical && card.kind === "note"
+      visible: card.soft && !card.critical && card.kind === "note"
       width: visible ? implicitWidth : 0
       anchors.right: parent.right
       anchors.rightMargin: island.s(10)
@@ -221,6 +228,14 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onClicked: card.dismissed()
       }
+    }
+
+    // Fog has no frame: a requester gets a thin urgent line instead.
+    Rectangle {
+      visible: card.fog && card.critical
+      x: island.s(12); y: parent.height - height
+      width: parent.width - island.s(24); height: Math.max(1, island.s(2))
+      color: island.urgentColor
     }
 
     Text {
@@ -245,7 +260,8 @@ Item {
     height: Math.max(0, card.visibleH - card.rowH)
     clip: true
     visible: card.kind === "note" && height > 0
-    opacity: card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
+    opacity: card.fog ? card.textIn * Math.max(0, Math.min(1, (card.openness - 0.6) / 0.4))
+      : card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
 
     Column {
       id: body
@@ -262,7 +278,7 @@ Item {
         Rectangle {
           id: tile
           width: island.s(44); height: width
-          radius: card.bubble ? island.s(6) : 0
+          radius: card.soft ? island.s(6) : 0
           color: card.mix(island.surface, card.ink, 0.22)
           readonly property string icon: island.notificationIcon(card.entry)
           Image {
@@ -330,18 +346,18 @@ Item {
             required property var modelData
             width: Math.max(island.s(84), label.implicitWidth + island.s(26))
             height: island.s(28)
-            radius: card.bubble ? island.s(5) : 0
+            radius: card.soft ? island.s(5) : 0
             readonly property bool primary: !!modelData.primary
             readonly property color fill: primary ? (btnMouse.containsMouse ? Qt.lighter(island.accentColor, 1.12) : island.accentColor)
               : Util.alpha(island.fg, btnMouse.containsMouse ? 0.14 : 0.07)
             color: fill
-            border.width: card.bubble ? 1 : 0
+            border.width: card.soft ? 1 : 0
             border.color: Util.alpha(island.fg, 0.22)
             // 1 px bevel, inverted while pressed
-            Rectangle { visible: !card.bubble; width: parent.width; height: 1; color: btnMouse.pressed ? card.bevelDark : Util.alpha("#ffffff", 0.35) }
-            Rectangle { visible: !card.bubble; width: 1; height: parent.height; color: btnMouse.pressed ? card.bevelDark : Util.alpha("#ffffff", 0.35) }
-            Rectangle { visible: !card.bubble; y: parent.height - 1; width: parent.width; height: 1; color: btnMouse.pressed ? Util.alpha("#ffffff", 0.35) : card.bevelDark }
-            Rectangle { visible: !card.bubble; x: parent.width - 1; width: 1; height: parent.height; color: btnMouse.pressed ? Util.alpha("#ffffff", 0.35) : card.bevelDark }
+            Rectangle { visible: !card.soft; width: parent.width; height: 1; color: btnMouse.pressed ? card.bevelDark : Util.alpha("#ffffff", 0.35) }
+            Rectangle { visible: !card.soft; width: 1; height: parent.height; color: btnMouse.pressed ? card.bevelDark : Util.alpha("#ffffff", 0.35) }
+            Rectangle { visible: !card.soft; y: parent.height - 1; width: parent.width; height: 1; color: btnMouse.pressed ? Util.alpha("#ffffff", 0.35) : card.bevelDark }
+            Rectangle { visible: !card.soft; x: parent.width - 1; width: 1; height: parent.height; color: btnMouse.pressed ? Util.alpha("#ffffff", 0.35) : card.bevelDark }
             Text {
               id: label
               anchors.centerIn: parent
