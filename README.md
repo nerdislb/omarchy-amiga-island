@@ -20,6 +20,24 @@ The plugin is both a `panel` (state and sources) and a `bar-widget`. Put `nerdib
 
 Settings live in the bar entry: while the plugin is in the bar, the shell reads and writes its entry in `bar.layout`, so keep only that one entry (no second one in `plugins[]`).
 
+## Notifications from the bar (1.3)
+
+With `notifications: true` the island takes over Omarchy's notification service (it disables `omarchy.notifications`, leaves a marker, and hands it back when the setting goes off or the plugin is removed). It keeps Omarchy's contract: the `notifications` IPC target (`dismissOne`, `dismissAll`, `invokeLast`, `showHistory`, `toggleDnd`, …), the DND state file and its exceptions (`omarchy-action` toasts and critical `notify-send`), `--exec` click commands, `replaces_id` updates in place.
+
+In the bar, notifications roll out of the bar's bottom edge right under the island, as one column:
+
+- **Normal**: exactly one open card (app name, summary, body, the sender's action buttons). Others wait under it as title rows (two, then `+N`) and move up when the open card leaves. Stand time 8 s (a sender's longer timeout up to 30 s), 4 s while others wait; the pointer on the column holds it. Click opens (default action / `--exec` / focus the app), right click or the close gadget dismisses, a waiting row clicked comes to the front.
+- **Critical**: a requester (the sender's actions, **Later**, **Dismiss**) that pauses the open card until it is handled; Later puts it into the inbox.
+- **Low** without buttons: no card, a still line in the island for 3.5 s, then the inbox.
+- **Bell** beside the clock: unread count; left click opens the inbox (Mark read, Clear all, do-not-disturb switch), right click toggles do not disturb (bell sleeps, `DND` and a silent count).
+- A 2 px line in the app's tone under the clock while a card hangs; it arrives as a short copper run.
+
+Settings: `noteStyle` `workbench` (window head, Omarchy frame) or `bubble` (speech bubble whose notch flows out of the bar), `noteTopaz` (card heads, INBOX and the count in the Topaz pixel font; `false` uses the theme font). Motion is mechanical (constant speed, hard stop); with Omarchy's Reduced Motion the same moments fade instead.
+
+IPC (`amiga-island`): `set noteStyle workbench|bubble`, `set noteTopaz true|false`, `set notifications true|false`; `note open|dismiss|later|next|action:<id>` (the column's buttons, for keybinds); `markRead`; `noteDemo mail|chat|phone|low|critical|actions|burst|story|many` (samples through the real queue).
+
+Notifications appear on the focused monitor, under the island of that monitor's bar. Live banners are not kept over a shell restart (the inbox is).
+
 ## Desktop integration (1.1)
 
 The island shows what the rest of this desktop already knows instead of keeping its own copy. All links are **read-only**; nothing is written to or sent from them.
@@ -45,7 +63,7 @@ This is an additional panel, **not a bar replacement**. By default it floats bel
 
 Existing Omarchy notifications, OSD and keybindings are untouched by default. Corresponding settings are `notifications: false`, `osd: false`, `keybind: false`, `volume: false`, `brightness: false`. Calendar subscriptions start empty; external holiday feeds are off. No account settings are imported.
 
-Source retains optional notification/OSD takeover features from upstream. They are **opt-in**, not part of this installation. `style`, `background`, notch sizes and `glow` are not offered in this variant; it always uses its flat theme-native rectangular surface. Round recording dots and progress gauges remain semantic indicators, not decorative capsules.
+Notification takeover (see above) and the OSD takeover are **opt-in**. `style`, `background`, notch sizes and `glow` are not offered in this variant; it always uses its flat theme-native rectangular surface. Round recording dots and progress gauges remain semantic indicators, not decorative capsules.
 
 ## Install / develop
 
