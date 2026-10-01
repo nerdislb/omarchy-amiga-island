@@ -37,7 +37,7 @@ Item {
 
   // Fog geometry: the layer reaches `fogMargin` past the cards on every
   // side (and up into the bar), so the blur never runs into its edge.
-  readonly property color fogColor: Color.bar.background
+  readonly property color fogColor: island ? island.fogColor : Color.bar.background
   readonly property real fogMargin: 32
   readonly property real fogGap: island ? island.s(8) : 8
   readonly property real dropW: island ? island.s(52) : 52

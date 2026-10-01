@@ -90,10 +90,50 @@ Item {
   readonly property string amigaFontLevel: String(amigaOptions.font || "theme")
   readonly property bool amigaTopaz: amigaFontLevel !== "theme"
   readonly property bool pixelFont: amigaFontLevel === "bar" || amigaFontLevel === "desktop"
+  // Fog look (Amiga Bar option `fog`): the colour the bar ends in — the
+  // bar's own (opaque: the A500 form makes the native bar transparent),
+  // or the darker front of the A500 case.
+  readonly property color fogColor: {
+    var c = Color.bar.background
+    var opaque = Qt.rgba(c.r, c.g, c.b, 1)
+    return amigaOptions.form === "a500" ? Qt.darker(opaque, 1.35) : opaque
+  }
   FontLoader { id: pixelRegular; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Regular.ttf") }
   FontLoader { id: pixelBold; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Bold.ttf") }
   readonly property string pixelFamily: pixelRegular.status === FontLoader.Ready ? pixelRegular.name : "NerdWorkbench Mono"
   property bool configLoaded: false
+
+  // For the Amiga Bar's A500 form: where the island sits in each bar (the
+  // drive slot goes under it) and whether a note is coming out (DF0 lights).
+  // Written only while that form is on, and only when it changed.
+  readonly property bool publishBarSpan: amigaOptions.form === "a500"
+  property string lastBarSpan: ""
+  FileView {
+    id: barSpanFile
+    path: root.stateDir + "/bar-span.json"
+    atomicWrites: true
+    printErrors: false
+  }
+  Timer {
+    interval: 1000
+    running: root.publishBarSpan
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: {
+      var screens = {}
+      var list = Bridge.IslandBus.list
+      for (var i = 0; i < list.length; i++) {
+        var w = list[i]
+        if (!w || !w.screenName || typeof w.barSpan !== "function") continue
+        var span = w.barSpan()
+        if (span) screens[w.screenName] = span
+      }
+      var text = JSON.stringify({ screens: screens, note: !!notifications.current && root.columnNotes })
+      if (text === root.lastBarSpan) return
+      root.lastBarSpan = text
+      barSpanFile.setText(text + "\n")
+    }
+  }
 
   FileView {
     path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
