@@ -128,7 +128,10 @@ Item {
         var span = w.barSpan()
         if (span) screens[w.screenName] = span
       }
-      var text = JSON.stringify({ screens: screens, note: !!notifications.current && root.columnNotes })
+      // the note comes out on one monitor: the one the column hangs on
+      var note = !!notifications.current && root.columnNotes
+      var at = noteColumn.latchedScreen || noteColumn.targetScreen
+      var text = JSON.stringify({ screens: screens, note: note, noteScreen: note && at ? at.name : "" })
       if (text === root.lastBarSpan) return
       root.lastBarSpan = text
       barSpanFile.setText(text + "\n")
@@ -737,7 +740,7 @@ Item {
     notifications.requeue(key)
     collapse()
   }
-  NotificationColumn { island: root; service: notifications }
+  NotificationColumn { id: noteColumn; island: root; service: notifications }
 
   // An app's tone from the theme: mail blue, chats green, phone cyan,
   // agents orange, updates yellow, else the accent; critical is urgent.
