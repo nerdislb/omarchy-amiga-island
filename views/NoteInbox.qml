@@ -75,7 +75,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       spacing: island.s(8)
       BevelButton { label: "Mark read"; enabled: island.unreadCount > 0; onClicked: island.markAllRead() }
-      BevelButton { label: "Clear all"; enabled: view.items.length > 0; onClicked: island.notificationClearAll() }
+      BevelButton { label: "Clear all"; enabled: view.items.length > 0; onClicked: island.notificationClearInbox() }
     }
     Rectangle { y: parent.height - 1; width: parent.width; height: 1; color: view.bevelDark }
   }
@@ -187,6 +187,9 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onClicked: function(mouse) {
           if (mouse.button === Qt.RightButton) island.notificationDismiss(row.modelData.key)
+          // A deferred requester whose sender is still there goes back to
+          // its buttons; anything else opens.
+          else if (row.modelData.critical && row.modelData.ref) island.requeueNote(row.modelData.key)
           else island.notificationOpen(row.modelData.key)
         }
       }

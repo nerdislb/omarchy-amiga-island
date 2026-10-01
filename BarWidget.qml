@@ -186,10 +186,14 @@ BarWidget {
         root.island.openCalendar()
       } else if (b === Qt.MiddleButton) {
         if (root.island.hasMedia) root.island.mediaToggle()
+      } else if (root.island.columnNotes && root.island.noteLine) {
+        // The low-urgency line is the island's: a click opens it.
+        root.island.notificationOpen(root.island.noteLine.key)
       } else {
         root.toggle()
       }
     }
+    onTooltipHoveredChanged: if (root.live) root.island.barHovered = tooltipHovered
 
     Behavior on fixedWidth {
       NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic }

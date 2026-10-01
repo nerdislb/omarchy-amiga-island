@@ -686,6 +686,17 @@ Item {
   readonly property bool doNotDisturb: notifications.doNotDisturb
   function setDoNotDisturb(value) { notifications.setDoNotDisturb(value) }
   function markAllRead() { notifications.markAllRead() }
+  // The pointer on the island in the bar (holds the low-urgency line).
+  property bool barHovered: false
+  function notificationClearInbox() {
+    notifications.clearInbox()
+    collapse()
+  }
+  // A deferred requester picked from the inbox: back to its buttons.
+  function requeueNote(key) {
+    notifications.requeue(key)
+    collapse()
+  }
   NotificationColumn { island: root; service: notifications }
 
   // An app's tone from the theme: mail blue, chats green, phone cyan,

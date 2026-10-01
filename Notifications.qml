@@ -74,20 +74,14 @@ Item {
   function receive(n) {
     n.tracked = true
     var entry = snapshot(n)
-    // A replaces_id update keeps its place (and key) in the queue, so the
-    // card changes its text in place instead of leaving and coming back.
-    var old = null
-    for (var i = 0; i < banners.length; i++) if (banners[i].ref === n) old = banners[i]
-    if (old) {
-      entry.key = old.key
-      entry.order = old.order
-      entry.shown = old.shown
-    }
-    if (line && line.ref === n) {
-      entry.key = line.key
-      line = entry
-      lineTimer.restart()
-      return
+    // replaces_id updates never arrive as a new notification: the server
+    // writes the new content onto this object. Watch it and refresh the
+    // entry in place (same key and queue position).
+    var refresh = function() { service.scheduleRefresh(n) }
+    var signals = ["summaryChanged", "bodyChanged", "urgencyChanged", "actionsChanged", "imageChanged",
+                   "appIconChanged", "expireTimeoutChanged", "hintsChanged"]
+    for (var s = 0; s < signals.length; s++) {
+      try { if (n[signals[s]]) n[signals[s]].connect(refresh) } catch (e) {}
     }
     // The sender withdrew it (read elsewhere, app closed it): drop it
     // everywhere without echoing a close back. Only a sender's own
@@ -107,6 +101,45 @@ Item {
     admit(entry, n)
   }
 
+  // Content updates, coalesced (a sender usually changes several fields).
+  property var refreshPending: []
+  function scheduleRefresh(n) {
+    if (refreshPending.indexOf(n) === -1) refreshPending = refreshPending.concat([n])
+    Qt.callLater(flushRefresh)
+  }
+  function flushRefresh() {
+    var list = refreshPending
+    refreshPending = []
+    for (var i = 0; i < list.length; i++) refreshFrom(list[i])
+  }
+  function refreshFrom(n) {
+    var old = null, where = ""
+    if (line && line.ref === n) { old = line; where = "line" }
+    for (var i = 0; !old && i < banners.length; i++) if (banners[i].ref === n) { old = banners[i]; where = "banner" }
+    for (var j = 0; !old && j < inbox.length; j++) if (inbox[j].ref === n) { old = inbox[j]; where = "inbox" }
+    if (!old) return
+    var fresh = snapshot(n)
+    fresh.key = old.key
+    fresh.order = old.order
+    fresh.shown = old.shown
+    if (where === "inbox") {
+      fresh.time = old.time
+      fresh.unread = true
+      inbox = inbox.map(function(e) { return e === old ? fresh : e })
+      saveInbox()
+      return
+    }
+    if (where === "line") {
+      line = null
+      lineTimer.stop()
+      admit(fresh, n)          // still low: a new line; escalated: a card
+      return
+    }
+    // A new object for the same key: the card shows the new text, the
+    // column keeps its row, and the open card's time starts again.
+    banners = banners.map(function(e) { return e === old ? fresh : e })
+  }
+
   function admit(entry, n) {
     if (doNotDisturb && !bypassesDnd(entry)) {
       // Silenced: no banner, straight to the inbox so nothing is missed.
@@ -124,6 +157,7 @@ Item {
   function showLine(entry) {
     if (line) retireLine()
     line = entry
+    lineTimer.interval = Model.lineDuration(entry)
     lineTimer.restart()
   }
 
@@ -141,10 +175,18 @@ Item {
     addToInbox(e)
   }
 
+  // The pointer on the bar's island holds the line (it starts again after).
   Timer {
     id: lineTimer
-    interval: Model.lineDuration
+    interval: 5000
     onTriggered: service.retireLine()
+  }
+  Connections {
+    target: service.island
+    function onBarHoveredChanged() {
+      if (service.island.barHovered) lineTimer.stop()
+      else if (service.line) lineTimer.restart()
+    }
   }
 
   function snapshot(n) {
@@ -318,8 +360,32 @@ Item {
     addToInbox(entry)
   }
 
+  // A deferred requester taken out of the inbox: back into the queue, where
+  // its buttons are (its key keeps it ahead of later arrivals).
+  function requeue(key) {
+    var entry = null
+    for (var i = 0; i < inbox.length; i++) if (inbox[i].key === key) entry = inbox[i]
+    if (!entry) return
+    inbox = inbox.filter(function(e) { return e.key !== key })
+    saveInbox()
+    entry.unread = false
+    banners = [entry].concat(banners)
+  }
+
   function markAllRead() {
     inbox = inbox.map(function(e) { e.unread = false; return e })
+    saveInbox()
+  }
+
+  // Omarchy's split: dismissAll clears what is on screen, clear the history.
+  function dismissLive() {
+    if (line) remove(line.key, "dismiss")
+    var keys = banners.map(function(e) { return e.key })
+    for (var i = 0; i < keys.length; i++) remove(keys[i], "dismiss")
+  }
+  function clearInbox() {
+    var keys = inbox.map(function(e) { return e.key })
+    for (var i = 0; i < keys.length; i++) remove(keys[i], "dismiss")
     saveInbox()
   }
 
@@ -409,6 +475,64 @@ Item {
     onLoadFailed: service.inboxRestored = true
   }
 
+  // ------------------------------------------------------- live queue file
+  // What is on screen (the queue and the line) survives a shell restart,
+  // like Omarchy's own toasts. Restored rows have no sender behind them:
+  // they open by focusing their app and keep no buttons of their own.
+  readonly property string livePath: stateDir + "/live.json"
+  property bool liveRestored: false
+  onBannersChanged: scheduleSaveLive()
+  onLineChanged: scheduleSaveLive()
+  function scheduleSaveLive() { if (liveRestored && !tearingDown) Qt.callLater(saveLive) }
+
+  function liveRow(e) {
+    var image = e.image && e.image.indexOf("/tmp/") === -1 && e.image.indexOf("image://") !== 0 ? e.image : ""
+    return {
+      app: e.app, appIcon: e.appIcon, desktopEntry: e.desktopEntry, summary: e.summary, body: e.body,
+      image: image, glyph: e.glyph, execArgv: e.execArgv, critical: e.critical, low: e.low,
+      timeout: e.timeout, time: e.time, shown: e.shown === true
+    }
+  }
+  function saveLive() {
+    if (tearingDown || !liveRestored) return
+    var rows = Model.noteQueue(banners)
+    var list = rows.current ? [rows.current].concat(rows.waiting) : []
+    var out = list.map(liveRow)
+    if (line) { var l = liveRow(line); l.line = true; out.push(l) }
+    liveFile.setText(JSON.stringify(out) + "\n")
+  }
+  function restoreLive(raw) {
+    if (liveRestored) return
+    var rows = []
+    try { rows = JSON.parse(raw || "[]") } catch (e) { rows = [] }
+    var restored = []
+    for (var i = 0; Array.isArray(rows) && i < rows.length && i < 50; i++) {
+      var r = rows[i] || {}
+      serial += 1
+      var entry = {
+        key: serial, ref: null, app: r.app || "", appIcon: r.appIcon || "", desktopEntry: r.desktopEntry || "",
+        summary: r.summary || "", body: r.body || "", image: r.image || "", glyph: r.glyph || "",
+        execArgv: r.execArgv || "", critical: r.critical === true, low: r.low === true,
+        timeout: Number(r.timeout || 0), actions: [], time: r.time || Date.now(), shown: r.shown === true
+      }
+      // A line was on its way into the inbox anyway.
+      if (r.line) { if (!Model.isEphemeralApp(entry.app)) addToInbox(entry) }
+      else restored.push(entry)
+    }
+    liveRestored = true
+    if (restored.length) banners = restored.concat(banners)
+  }
+
+  FileView {
+    id: liveFile
+    // Read only once the island serves notifications.
+    path: service.active ? service.livePath : ""
+    printErrors: false
+    atomicWrites: true
+    onLoaded: service.restoreLive(text())
+    onLoadFailed: service.liveRestored = true
+  }
+
   // ----------------------------------------------------------------- DND
   function setDoNotDisturb(value) {
     doNotDisturb = !!value
@@ -453,8 +577,8 @@ Item {
       if (service.island) service.island.openInbox()
       return service.inbox.length > 0 ? "ok" : "none"
     }
-    function clear(): string { service.clearAll(); return "ok" }
-    function dismissAll(): string { service.clearAll(); return "ok" }
+    function clear(): string { service.clearInbox(); return "ok" }
+    function dismissAll(): string { service.dismissLive(); return "ok" }
     function dismissOne(): string {
       var key = service.newestKey()
       if (key < 0) return "none"
@@ -470,7 +594,7 @@ Item {
     function dismiss(summary: string): string {
       var needle = String(summary || "")
       if (!needle) return "none"
-      var keys = service.banners.concat(service.inbox)
+      var keys = service.banners.concat(service.inbox).concat(service.line ? [service.line] : [])
         .filter(function(e) { return String(e.summary || "").indexOf(needle) !== -1 })
         .map(function(e) { return e.key })
       for (var i = 0; i < keys.length; i++) service.dismiss(keys[i])

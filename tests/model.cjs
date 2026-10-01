@@ -33,11 +33,17 @@ assert.equal(ctx.isLineNote(n(1, { low: true })), true);
 assert.equal(ctx.isLineNote(n(1, { low: true, actions: [{ id: 'a' }] })), false);
 assert.equal(ctx.isLineNote(n(1, { low: true, critical: true })), false);
 assert.equal(ctx.isLineNote(n(1)), false);
+assert.equal(ctx.isLineNote(n(1, { low: true, execArgv: '["omarchy-menu"]' })), false);
 
-// Stand times: Omarchy's 8 s, sender timeout up to 30 s, 4 s with a queue, critical stays.
+// Stand times: Omarchy's 8 s (low 5 s), a requested timeout up to 30 s even
+// with a queue, 5 s with a queue otherwise, critical stays.
 assert.equal(ctx.noteDuration(n(1), 0), 8000);
+assert.equal(ctx.noteDuration(n(1, { low: true }), 0), 5000);
 assert.equal(ctx.noteDuration(n(1, { timeout: 60000 }), 0), 30000);
-assert.equal(ctx.noteDuration(n(1, { timeout: 12000 }), 2), 4000);
+assert.equal(ctx.noteDuration(n(1, { timeout: 12000 }), 2), 12000);
+assert.equal(ctx.noteDuration(n(1), 2), 5000);
+assert.equal(ctx.lineDuration(n(1)), 5000);
+assert.equal(ctx.lineDuration(n(1, { timeout: 9000 })), 9000);
 assert.equal(ctx.noteDuration(n(1, { critical: true }), 0), 0);
 assert.equal(ctx.noteDuration(null, 0), 0);
 

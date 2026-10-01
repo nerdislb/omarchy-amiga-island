@@ -112,26 +112,29 @@ Item {
     return island ? island.targetScreen : (screens.length ? screens[0] : null)
   }
   property real anchorX: -1
-  // Taken when the first card comes, so the column stays put while the
-  // island segment beside the clock grows and shrinks.
+  property var latchedScreen: null
+  // Screen and x are taken together when the first card comes, so the
+  // column stays put (on its monitor, under its island) while the queue
+  // lasts, even if focus moves or the segment beside the clock grows.
   function latchAnchor() {
-    if (anchorX >= 0 && rows.count > 1) return
-    var name = targetScreen ? targetScreen.name : ""
+    if (anchorX >= 0 && latchedScreen) return
+    latchedScreen = targetScreen
+    var name = latchedScreen ? latchedScreen.name : ""
     var list = Bridge.IslandBus.list
     var pick = null
     for (var i = 0; i < list.length; i++) if (list[i] && list[i].screenName === name) pick = list[i]
     if (!pick && list.length) pick = list[0]
-    anchorX = pick && typeof pick.anchorX === "function" ? pick.anchorX() : (targetScreen ? targetScreen.width / 2 : 960)
+    anchorX = pick && typeof pick.anchorX === "function" ? pick.anchorX() : (latchedScreen ? latchedScreen.width / 2 : 960)
   }
   Connections {
     target: rows
-    function onCountChanged() { if (rows.count === 0) column.anchorX = -1 }
+    function onCountChanged() { if (rows.count === 0) { column.anchorX = -1; column.latchedScreen = null } }
   }
 
   PanelWindow {
     id: win
 
-    screen: column.targetScreen
+    screen: column.latchedScreen || column.targetScreen
     visible: column.serving && rows.count > 0
     anchors { top: true; left: true; right: true }
     // Tall enough for a requester, two rows and "+N"; only the cards take input.
@@ -270,7 +273,11 @@ Item {
               return
             }
             if (leaving) run(depart)
-            else { presence = 1; run(unroll) }
+            else {
+              // Back before it was gone: finish whatever its arrival left.
+              presence = 1; spread = 1; arrived = true
+              run(unroll)
+            }
           }
         }
       }

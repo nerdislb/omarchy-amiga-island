@@ -832,19 +832,24 @@ function frontOrder(banners) {
 
 // Low urgency without buttons never becomes a card: one still line in the
 // island, then the inbox.
+// A click command (omarchy-notification-send --exec) also needs a card.
 function isLineNote(entry) {
   return !!entry && entry.low === true && !entry.critical && !(entry.actions && entry.actions.length)
+    && !entry.execArgv
 }
 
-// Omarchy's stand times (normal 8 s, a sender's longer timeout up to 30 s,
-// critical until handled); with others waiting the open card hands over
-// after 4 s.
+// Omarchy's stand times: low 5 s, normal 8 s, a sender's longer timeout up
+// to 30 s, critical until handled. With others waiting, a card without a
+// requested timeout hands over after Omarchy's minimum of 5 s.
 function noteDuration(entry, waitingCount) {
   if (!entry || entry.critical) return 0
-  var ms = Math.min(30000, Math.max(entry.low ? 5000 : 8000, entry.timeout > 0 ? entry.timeout : 0))
-  return waitingCount > 0 ? Math.min(ms, 4000) : ms
+  var base = entry.low ? 5000 : 8000
+  if (entry.timeout > 0) return Math.min(30000, Math.max(base, entry.timeout))
+  return waitingCount > 0 ? 5000 : base
 }
-var lineDuration = 3500
+function lineDuration(entry) {
+  return Math.min(30000, Math.max(5000, entry && entry.timeout > 0 ? entry.timeout : 0))
+}
 var maxWaitingRows = 2
 
 function unreadCount(inbox) {
