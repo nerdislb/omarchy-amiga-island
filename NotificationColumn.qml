@@ -20,6 +20,10 @@ import "bridge" as Bridge
 // into the card, then the text fades in; going back, the text fades, the
 // blob shrinks to a drop and is pulled back into the bar, leaving a faint
 // fog for a moment. Waiting rows hang under it as smaller blobs.
+// A Lavur theme's bloom (material card.bloom) grows the same way, but every
+// note is its own sheet of wet paper (views/InkSheet.qml): ink fills it, the
+// water clears it from the top, the pigment dries into a rim at its calm
+// edge; sheets never melt into each other (frame round 03.10.2026).
 //
 // Only the cards take input; the strip never takes keyboard focus.
 Item {
@@ -30,30 +34,16 @@ Item {
 
   readonly property bool serving: !!island && island.columnNotes
   // the fog look (Amiga Bar option), or a Lavur theme's bloom (material card.bloom):
-  // both use the gooey fog layer; the bloom adds scallops and a tide line
+  // the fog's notes share one gooey layer, the bloom's are sheets of their own
   readonly property bool fogOpt: !!island && !!island.amigaOptions && island.amigaOptions.fog === "on"
   // theme material (edge "theme"): replaces workbench/bubble with the theme's card
   readonly property var material: !fogOpt && !!island ? island.material : null
   readonly property bool bloom: !!material && !!material.card && material.card.bloom === true
   readonly property bool fog: fogOpt || bloom
+  // the bloom's pigment (tide colour) and its dried rim (card.rest)
   readonly property var tide: bloom ? material.card.tide || null : null
-  readonly property color tideColor: tide ? (function() { var c = Qt.color(tide.color || "#000000"); return Qt.rgba(c.r, c.g, c.b, tide.alpha === undefined ? 0.5 : tide.alpha) })() : "transparent"
-  readonly property real tideW: tide ? tide.width || 2 : 0
+  readonly property var rest: bloom ? material.card.rest || null : null
   readonly property bool lightBar: 0.2126 * fogColor.r + 0.7152 * fogColor.g + 0.0722 * fogColor.b > 0.55
-  // notes whose bloom is still wet (the mask source runs only meanwhile)
-  property int wetCount: 0
-  // scallops along a blob's sides and foot (w × h), grown with `spread`
-  function scallopAt(i, n, w, h, spread, wet, phase) {
-    var per = 2 * h + w
-    var u = ((i + 0.5 + 0.3 * Math.sin(i * 12.9898)) / n) * per
-    var x, y
-    if (u < h) { x = 0; y = u }
-    else if ((u -= h) < w) { x = u; y = h }
-    else { u -= w; x = w; y = Math.max(0, h - u) }
-    var k = Math.abs(Math.sin(i * 78.233) * 43758.5453) % 1
-    var swell = 1 + 0.28 * (wet || 0) * Math.sin((phase || 0) * 1.7 + i * 1.3)   // wet scallops move
-    return { x: x, y: y, r: (3 + 8 * k * k) * swell * Math.max(0, Math.min(1, spread)) }
-  }
   readonly property bool bubble: !fog && !material && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
   readonly property bool topaz: !!island && island.setting("noteTopaz", true) !== false
   readonly property real cardW: island ? island.s(480) : 480
@@ -206,32 +196,15 @@ Item {
         layer.enabled: ghostLayer.visible
         layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: 48; autoPaddingEnabled: false }
       }
-      // bloom: the tide line – the same shapes a little larger, in the ink, under the fill
+      // the fog's notes in one gooey layer (the bloom's sheets are moved in after it)
       FogLayer {
-        visible: column.bloom
-        anchors.fill: parent
-        color: column.tideColor
-        blurMax: 24
-        threshold: 0.4
-        softness: 0.5
-        Item { id: rimShapes; anchors.fill: parent }
-      }
-      FogLayer {
-        id: fogFill
+        visible: !column.bloom
         anchors.fill: parent
         color: column.fogColor
         blurMax: 24
         threshold: 0.4
         softness: 0.5
         Item { id: fogShapes; anchors.fill: parent }
-      }
-      // the blooms' mask for the wet ink (each note draws its own, moved in here)
-      ShaderEffectSource {
-        id: fogFillMask
-        sourceItem: column.bloom && column.wetCount > 0 ? fogFill : null
-        hideSource: false
-        live: true
-        visible: false
       }
     }
 
@@ -272,17 +245,12 @@ Item {
           property bool arrived: false
           // Fog look: the text, faded in once the blob has grown.
           property real ink: 1
-          // Bloom (Lavur): ink fills the blob, the water clears it from the
-          // bar edge downwards and pushes the pigment into the tide line;
-          // while wet the edge is soft and its scallops move
+          // Bloom (Lavur): ink fills the sheet, the water clears it from the
+          // bar edge downwards and pushes the pigment into its edge, where it
+          // dries into the rim; while wet the edge is soft and drifts
           property real clearing: 1
           property real wet: 0
           property real phase: 0
-          readonly property bool wetNow: column.bloom && clearing < 0.999
-          // the tide line is wider while wet
-          readonly property real tideW: column.tideW * (1 + 0.35 * wet)
-          onWetNowChanged: column.wetCount += wetNow ? 1 : -1
-          Component.onDestruction: if (wetNow) column.wetCount -= 1
           // Reduced Motion switched on while it is still wet: dry at once
           Connections {
             target: column
@@ -334,75 +302,44 @@ Item {
             height: column.fogMargin + stack.y + 1
             color: "white"
           }
-          // Bloom (Lavur): scallops on the blob, and blob, neck and scallops a
-          // little larger in the tide-line layer (moved into the layers below).
-          Item {
-            id: scallops
+          // Bloom (Lavur): this note's own sheet of wet paper (moved into the
+          // fog area below) – the paper, the wet ink cleared from its top and
+          // the dried rim. Sized for the whole card (no layer is resized
+          // while it grows); only the first one flares up into the bar.
+          InkSheet {
+            id: sheet
+            readonly property real pad: 40
+            visible: column.bloom && slot.presence > 0
             opacity: slot.fade
-            x: blob.x; y: blob.y; width: blob.width; height: blob.height
-            Repeater {
-              model: column.bloom ? 26 : 0
-              Rectangle {
-                required property int index
-                readonly property var p: column.scallopAt(index, 26, scallops.width, scallops.height, slot.spread, slot.wet, slot.phase)
-                x: p.x - p.r; y: p.y - p.r; width: 2 * p.r; height: 2 * p.r; radius: p.r
-                color: "white"
-              }
-            }
-          }
-          Item {
-            id: rimScallops
-            opacity: slot.fade
-            x: blob.x; y: blob.y; width: blob.width; height: blob.height
-            Repeater {
-              model: column.bloom ? 26 : 0
-              Rectangle {
-                required property int index
-                readonly property var p: column.scallopAt(index, 26, rimScallops.width, rimScallops.height, slot.spread, slot.wet, slot.phase)
-                readonly property real r: p.r > 0 ? p.r + slot.tideW : 0
-                x: p.x - r; y: p.y - r; width: 2 * r; height: 2 * r; radius: r
-                color: "white"
-              }
-            }
-          }
-          Rectangle {
-            id: rimBlob
-            opacity: slot.fade
-            x: blob.x - slot.tideW; y: blob.y
-            width: column.bloom && blob.width > 0 ? blob.width + 2 * slot.tideW : 0
-            height: blob.height + slot.tideW
-            radius: blob.radius + slot.tideW
-            color: "white"
-          }
-          Rectangle {
-            id: rimNeck
-            opacity: slot.fade
-            x: neck.x - slot.tideW; y: neck.y
-            width: column.bloom && neck.width > 0 ? neck.width + 2 * slot.tideW : 0
-            height: neck.height
-            color: "white"
-          }
-          ShaderEffect {
-            id: wetInk
-            z: 10
-            visible: slot.wetNow && blob.width > 0
-            // only over this note's bloom (its scallops to the sides, stopping
-            // above the next note): the mask holds every bloom of the column
-            x: blob.x - 30; y: blob.y - 4
-            width: blob.width + 60; height: blob.height + 8
-            property var mask: fogFillMask
-            property size size: Qt.size(fogFill.width, fogFill.height)
-            property point center: Qt.point(blob.x + blob.width / 2, blob.y - 2)
-            property rect region: Qt.rect(x, y, width, height)
-            property color ink: column.tide ? Qt.color(column.tide.color || "#000000") : column.island.fg
-            property real front: (Math.hypot(blob.width / 2, blob.height) + 30) * 1.15 * slot.clearing
-            property real band: 40
-            property real body: column.lightBar ? 0.44 : 0.34
-            property real ridge: column.lightBar ? 0.38 : 0.3
-            property real resid: column.lightBar ? 0.08 : 0.07
-            property real jitter: 18
-            property real seed: 3.0 + slot.index
-            fragmentShader: Qt.resolvedUrl("views/shaders/wetink.frag.qsb")
+            x: column.fogMargin - pad
+            y: blob.y - pad
+            width: column.cardW + 2 * pad
+            height: Math.max(column.dropH, note.rowH) + note.bodyH + 2 * pad
+            blobX: blob.x - x
+            blobY: pad
+            blobW: blob.width
+            blobH: blob.height
+            radius: column.island.s(12)
+            neck: slot.index === 0
+            flare: column.island.s(14)
+            barY: column.fogMargin - y
+            originX: pad
+            originY: pad
+            paper: column.fogColor
+            ink: column.tide ? Qt.color(column.tide.color || "#000000") : column.island.fg
+            light: column.lightBar
+            rest: column.rest
+            haloBase: column.material && column.material.card ? column.material.card.halo || null : null
+            clearing: slot.clearing
+            wet: slot.wet
+            phase: slot.phase
+            sourceX: blob.x + blob.width / 2 - x
+            sourceY: pad - 2
+            reach: Math.hypot(blob.width / 2, blob.height) + 30
+            inkTop: pad - 4
+            band: 40
+            jitter: 18
+            seed: 3 + slot.index
           }
           // Residual fog where the card was, fading after it left.
           Rectangle {
@@ -431,7 +368,8 @@ Item {
           Item {
             id: haloBox
             readonly property real spread: 40
-            visible: !!slot.matHalo && slot.height > 0
+            // (a bloom's sheet brings its own halo)
+            visible: !!slot.matHalo && slot.height > 0 && !column.bloom
             x: -spread
             y: -spread + (column.material && column.material.card && column.material.card.halo ? 6 : 0)
             width: slot.width + 2 * spread
@@ -560,8 +498,7 @@ Item {
             // The fog shapes live in the column's fog layers (they leave
             // with this row: it still owns them).
             blob.parent = fogShapes; neck.parent = fogShapes; ghost.parent = ghostLayer
-            scallops.parent = fogShapes; rimScallops.parent = rimShapes; rimBlob.parent = rimShapes; rimNeck.parent = rimShapes
-            wetInk.parent = fogArea
+            sheet.parent = fogArea
             if (column.bloom && !column.reduced) { clearing = 0; wet = 1; phase = 0; wetting.start() }
             if (column.reduced) {
               presence = 1; spread = 1; arrived = true; fade = 0; ink = 1

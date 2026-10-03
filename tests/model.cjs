@@ -54,4 +54,18 @@ assert.equal(ctx.unreadCount([{ unread: true }, { unread: false }, {}]), 2);
 assert.equal(ctx.defaultSettings.noteStyle, 'workbench');
 assert.equal(ctx.defaultSettings.noteTopaz, true);
 assert.equal(ctx.defaultSettings.notifications, false);
+
+// Lavur bloom (frame round 03.10.2026, recommendation 6): every note is its own sheet of wet paper –
+// no shared tide-line layer, no scallops; the fog look keeps its one gooey layer.
+{
+  const col = fs.readFileSync(path.join(__dirname, '..', 'NotificationColumn.qml'), 'utf8');
+  assert.doesNotMatch(col, /scallop|rimShapes|fogFillMask|wetCount/, 'no tide-line layer, scallops or shared ink mask');
+  assert.match(col, /InkSheet \{\n\s*id: sheet\n/, 'one sheet per note');
+  assert.match(col, /sheet\.parent = fogArea/, 'the sheets live in the fog area');
+  assert.match(col, /neck: slot\.index === 0/, 'only the first note flares up into the bar');
+  assert.match(col, /FogLayer \{\n\s*visible: !column\.bloom\n/, 'the gooey layer only for the fog look');
+  assert.match(col, /visible: !!slot\.matHalo && slot\.height > 0 && !column\.bloom/, 'a sheet brings its own halo');
+  for (const f of ['InkSheet.qml', 'shaders/gauss.frag.qsb', 'shaders/bloomcut.frag.qsb', 'shaders/restink.frag.qsb', 'shaders/wetink.frag.qsb'])
+    assert.ok(fs.existsSync(path.join(__dirname, '..', 'views', f)), f);
+}
 console.log('model tests ok');

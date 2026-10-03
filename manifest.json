@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "nerdibeard.amiga-island",
   "name": "Amiga Island",
-  "version": "1.7.0-local.1",
+  "version": "1.8.0-local.1",
   "author": "Nerdibeard · based on Arjun010011",
   "license": "MIT",
   "description": "Theme-native activity island in the bar: the clock grows a live segment (agents, timers, media, meetings, limits) and opens a native popup; optionally serves notifications as a column under itself. OmaMail calendar, Flux, AI limits.",
