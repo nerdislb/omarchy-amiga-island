@@ -241,7 +241,8 @@ Item {
           width: column.cardW
           height: column.fog ? fogGap + blobH
             : Math.max(0, note.visibleH - (1 - presence) * note.rowH)
-          clip: true
+          // The card is clipped by `cardClip` below (it slides out of the bar's
+          // edge); the material's shadow and halo sit outside that clip.
 
           // This row's blob, in the column's fog layer (moved there below);
           // the first one also reaches up into the bar, where the fog layer
@@ -273,38 +274,78 @@ Item {
             color: column.fogColor
           }
 
-          NoteCard {
-            id: note
-            y: column.fog ? slot.fogGap : -(1 - slot.presence) * rowH
-            width: parent.width
-            island: column.island
-            entry: slot.entry
-            kind: slot.kind
-            moreCount: column.hiddenCount
-            bubble: column.bubble
-            fog: column.fog
-            material: column.material
-            textIn: slot.ink
-            topaz: column.topaz && !column.material
-            first: slot.index === 0
-            active: slot.open
-            // A row that is going (dismissed, answered) keeps no label rather
-            // than flipping to "paused" while it rolls away.
-            stateLabel: slot.open ? "now" : !slot.queued ? "" : (slot.entry && slot.entry.shown ? "paused" : "next")
-            openness: slot.openness
-            spread: slot.spread
-            tone: column.island.noteTone(slot.entry)
+          // material (theme edge): the hard ink shadow (Papier) or the halo
+          // (Tusche, Lavur) of the visible part of the card
+          readonly property var matShade: column.material && column.material.card
+            ? (column.material.card.shadow || null) : null
+          readonly property var matHalo: column.material && column.material.card
+            ? (column.material.card.halo || column.material.card.glow || null) : null
+          Rectangle {
+            visible: !!slot.matShade && slot.height > 0
+            x: slot.matShade ? slot.matShade.dx || 0 : 0
+            y: slot.matShade ? slot.matShade.dy || 0 : 0
+            width: slot.width
+            height: slot.height
             opacity: slot.fade
+            color: slot.matShade ? note.rgba(slot.matShade.color, slot.matShade.alpha) : "transparent"
+          }
+          Item {
+            id: haloBox
+            readonly property real spread: 40
+            visible: !!slot.matHalo && slot.height > 0
+            x: -spread
+            y: -spread + (column.material && column.material.card && column.material.card.halo ? 6 : 0)
+            width: slot.width + 2 * spread
+            height: slot.height + 2 * spread
+            opacity: slot.fade
+            layer.enabled: visible
+            layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: slot.matHalo ? Math.min(64, slot.matHalo.blur || 32) : 32; autoPaddingEnabled: false }
+            Rectangle {
+              x: haloBox.spread; y: haloBox.spread
+              width: parent.width - 2 * haloBox.spread; height: parent.height - 2 * haloBox.spread
+              color: slot.matHalo ? note.rgba(slot.matHalo.color, slot.matHalo.alpha) : "transparent"
+            }
+          }
 
-            onOpened: column.island.notificationOpen(slot.key)
-            onDismissed: column.island.notificationDismiss(slot.key)
-            onLater: column.service.later(slot.key)
-            onAction: function(id) { column.island.notificationAction(slot.key, id) }
-            onPromoted: {
-              if (slot.kind === "more") {
-                var w = column.service.waiting
-                if (w.length > Model.maxWaitingRows) column.service.promote(w[Model.maxWaitingRows].key)
-              } else column.service.promote(slot.key)
+          Item {
+            id: cardClip
+            width: slot.width
+            height: slot.height
+            clip: true
+
+            NoteCard {
+              id: note
+              y: column.fog ? slot.fogGap : -(1 - slot.presence) * rowH
+              width: parent.width
+              island: column.island
+              entry: slot.entry
+              kind: slot.kind
+              moreCount: column.hiddenCount
+              bubble: column.bubble
+              fog: column.fog
+              material: column.material
+              textIn: slot.ink
+              topaz: column.topaz && !column.material
+              first: slot.index === 0
+              active: slot.open
+              // A row that is going (dismissed, answered) keeps no label rather
+              // than flipping to "paused" while it rolls away.
+              stateLabel: slot.open ? "now" : !slot.queued ? "" : (slot.entry && slot.entry.shown ? "paused" : "next")
+              openness: slot.openness
+              spread: slot.spread
+              tone: column.island.noteTone(slot.entry)
+              opacity: slot.fade
+
+              onOpened: column.island.notificationOpen(slot.key)
+              onDismissed: column.island.notificationDismiss(slot.key)
+              onLater: column.service.later(slot.key)
+              onAction: function(id) { column.island.notificationAction(slot.key, id) }
+              onPromoted: {
+                if (slot.kind === "more") {
+                  var w = column.service.waiting
+                  if (w.length > Model.maxWaitingRows) column.service.promote(w[Model.maxWaitingRows].key)
+                } else column.service.promote(slot.key)
+              }
             }
           }
 

@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Shapes
-import QtQuick.Effects
 import qs.Commons
 import qs.Ui as Ui
 
@@ -74,35 +73,8 @@ Item {
   readonly property color bevelLight: mix(headFill, island.fg, 0.28)
   readonly property color bevelDark: Qt.darker(island.surface, 1.7)
 
-  // ------------------------------------------------------------ material light/shadow
-  // under the card: the hard ink shadow (Papier) …
-  Rectangle {
-    readonly property var spec: card.mat ? card.mat.shadow || null : null
-    visible: !!spec
-    x: card.shapeX + (spec ? spec.dx || 0 : 0)
-    y: card.notchH + (spec ? spec.dy || 0 : 0)
-    width: card.shapeW
-    height: Math.max(0, card.visibleH - card.notchH)
-    color: spec ? card.rgba(spec.color, spec.alpha) : "transparent"
-  }
-  // … or the halo / glow (Tusche, Lavur)
-  Item {
-    id: halo
-    readonly property var spec: card.mat ? card.mat.halo || card.mat.glow || null : null
-    readonly property real spread: 40
-    visible: !!spec && card.visibleH > card.notchH
-    x: card.shapeX - spread
-    y: card.notchH - spread + (card.mat && card.mat.halo ? 6 : 0)
-    width: card.shapeW + 2 * spread
-    height: Math.max(0, card.visibleH - card.notchH) + 2 * spread
-    layer.enabled: visible
-    layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: halo.spec ? Math.min(64, halo.spec.blur || 32) : 32; autoPaddingEnabled: false }
-    Rectangle {
-      x: halo.spread; y: halo.spread
-      width: parent.width - 2 * halo.spread; height: parent.height - 2 * halo.spread
-      color: halo.spec ? card.rgba(halo.spec.color, halo.spec.alpha) : "transparent"
-    }
-  }
+  // (material: the slot in NotificationColumn draws the card's shadow / halo,
+  //  outside the clip the card slides out of)
 
   // ------------------------------------------------------------ surface
   Ui.BorderSurface {

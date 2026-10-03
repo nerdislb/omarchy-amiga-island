@@ -111,7 +111,7 @@ Item {
     path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
     watchChanges: true
     printErrors: false
-    onFileChanged: { reload(); materialFile.reload() }
+    onFileChanged: reload()
     onLoaded: materialFile.reload()
   }
   readonly property var material: amigaOptions.edge === "theme" && amigaOptions.fog !== "on" ? themeMaterial : null
