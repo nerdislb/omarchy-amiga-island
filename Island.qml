@@ -93,6 +93,28 @@ Item {
   // Fog look (Amiga Bar option `fog`): the colour the bar ends in — the
   // bar's own (opaque: the A500 form makes the native bar transparent),
   // or the darker front of the A500 case.
+  // Theme material (Amiga Bar edge option "theme"; Tusche & Papier): the
+  // current theme's bar-material.json – notes and popups take its light and
+  // shadow. Off with the fog look, and for themes without the file.
+  readonly property string themeDir: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme"
+  property var themeMaterial: null
+  FileView {
+    id: materialFile
+    path: root.themeDir + "/bar-material.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: { try { root.themeMaterial = JSON.parse(text()) } catch (e) { root.themeMaterial = null } }
+    onLoadFailed: root.themeMaterial = null
+  }
+  FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: { reload(); materialFile.reload() }
+    onLoaded: materialFile.reload()
+  }
+  readonly property var material: amigaOptions.edge === "theme" && amigaOptions.fog !== "on" ? themeMaterial : null
   readonly property color fogColor: {
     var c = Color.bar.background
     var opaque = Qt.rgba(c.r, c.g, c.b, 1)

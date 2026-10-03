@@ -30,7 +30,9 @@ Item {
 
   readonly property bool serving: !!island && island.columnNotes
   readonly property bool fog: !!island && !!island.amigaOptions && island.amigaOptions.fog === "on"
-  readonly property bool bubble: !fog && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
+  // theme material (edge "theme"): replaces workbench/bubble with the theme's card
+  readonly property var material: !fog && !!island ? island.material : null
+  readonly property bool bubble: !fog && !material && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
   readonly property bool topaz: !!island && island.setting("noteTopaz", true) !== false
   readonly property real cardW: island ? island.s(480) : 480
   readonly property bool reduced: Style.reduceMotion
@@ -281,8 +283,9 @@ Item {
             moreCount: column.hiddenCount
             bubble: column.bubble
             fog: column.fog
+            material: column.material
             textIn: slot.ink
-            topaz: column.topaz
+            topaz: column.topaz && !column.material
             first: slot.index === 0
             active: slot.open
             // A row that is going (dismissed, answered) keeps no label rather

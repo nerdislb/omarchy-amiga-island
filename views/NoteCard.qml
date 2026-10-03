@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Shapes
+import QtQuick.Effects
 import qs.Commons
 import qs.Ui as Ui
 
@@ -11,6 +12,11 @@ import qs.Ui as Ui
 // spreads from the notch, then the body rolls down.
 // Fog: no surface of its own — the column draws the card as a blob in its
 // fog layer; the text sits on it and fades with `textIn`.
+// Material (Amiga Bar edge "theme", Tusche & Papier): Omarchy's card in the
+// theme's frame with its light and shadow – a hard ink shadow (Papier) or a
+// halo (Tusche, Lavur) – soft controls, no title bar; a critical note keeps
+// text and frame in the theme's colours and carries one narrow signal
+// stripe on its left edge (and the signal on its symbol).
 // The column drives `openness` (0 = title row, 1 = open), `spread`, `textIn`.
 Item {
   id: card
@@ -21,6 +27,8 @@ Item {
   property int moreCount: 0
   property bool bubble: false
   property bool fog: false
+  property var material: null           // theme material (bar-material.json) or null
+  readonly property var mat: !fog && !bubble && material && material.card ? material.card : null
   property real textIn: 1               // fog: text opacity
   property bool topaz: true
   property bool first: false            // hangs from the island (bubble: notch)
@@ -38,7 +46,7 @@ Item {
 
   readonly property bool critical: !!(entry && entry.critical) && kind === "note"
   // Bubble and fog share the soft controls (no gadget, rounded buttons).
-  readonly property bool soft: bubble || fog
+  readonly property bool soft: bubble || fog || !!mat
   readonly property real frame: Math.max(1, island.s(2))
   readonly property real notchH: bubble && first ? island.s(11) : 0
   readonly property real headH: island.s(26)
@@ -47,8 +55,9 @@ Item {
   readonly property real bodyH: kind === "note" ? body.implicitHeight + pad * 2 : 0
   readonly property real fullH: rowH + bodyH
   readonly property real visibleH: rowH + bodyH * Math.max(0, Math.min(1, openness))
-  readonly property color ink: critical ? island.urgentColor : tone
-  readonly property color frameColor: critical ? island.urgentColor
+  // material: text stays in the theme's colours, the signal sits on the stripe and the symbol only
+  readonly property color ink: mat ? (critical ? island.fg : tone) : critical ? island.urgentColor : tone
+  readonly property color frameColor: critical && !mat ? island.urgentColor
     : active ? island.rim : Util.alpha(island.fg, 0.22)
 
   implicitHeight: visibleH
@@ -59,10 +68,41 @@ Item {
   readonly property real shapeX: (width - shapeW) / 2
 
   function mix(a, b, t) { return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1) }
+  function rgba(hex, alpha) { var c = Qt.color(hex || "#000000"); return Qt.rgba(c.r, c.g, c.b, alpha === undefined ? 1 : alpha) }
   readonly property color headFill: critical ? mix(island.surface, island.urgentColor, 0.2)
     : active ? mix(island.surface, tone, 0.16) : mix(island.surface, island.fg, 0.04)
   readonly property color bevelLight: mix(headFill, island.fg, 0.28)
   readonly property color bevelDark: Qt.darker(island.surface, 1.7)
+
+  // ------------------------------------------------------------ material light/shadow
+  // under the card: the hard ink shadow (Papier) …
+  Rectangle {
+    readonly property var spec: card.mat ? card.mat.shadow || null : null
+    visible: !!spec
+    x: card.shapeX + (spec ? spec.dx || 0 : 0)
+    y: card.notchH + (spec ? spec.dy || 0 : 0)
+    width: card.shapeW
+    height: Math.max(0, card.visibleH - card.notchH)
+    color: spec ? card.rgba(spec.color, spec.alpha) : "transparent"
+  }
+  // … or the halo / glow (Tusche, Lavur)
+  Item {
+    id: halo
+    readonly property var spec: card.mat ? card.mat.halo || card.mat.glow || null : null
+    readonly property real spread: 40
+    visible: !!spec && card.visibleH > card.notchH
+    x: card.shapeX - spread
+    y: card.notchH - spread + (card.mat && card.mat.halo ? 6 : 0)
+    width: card.shapeW + 2 * spread
+    height: Math.max(0, card.visibleH - card.notchH) + 2 * spread
+    layer.enabled: visible
+    layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: halo.spec ? Math.min(64, halo.spec.blur || 32) : 32; autoPaddingEnabled: false }
+    Rectangle {
+      x: halo.spread; y: halo.spread
+      width: parent.width - 2 * halo.spread; height: parent.height - 2 * halo.spread
+      color: halo.spec ? card.rgba(halo.spec.color, halo.spec.alpha) : "transparent"
+    }
+  }
 
   // ------------------------------------------------------------ surface
   Ui.BorderSurface {
@@ -74,7 +114,17 @@ Item {
     height: Math.max(0, card.visibleH - card.notchH)
     radius: card.bubble ? island.s(10) : 0
     color: island.surface
-    borderSpec: card.critical || !card.active ? Border.flat(card.frameColor, card.frame) : island.frameSpec
+    borderSpec: (card.critical && !card.mat) || !card.active ? Border.flat(card.frameColor, card.frame) : island.frameSpec
+  }
+  // material: a critical note's one signal stripe on the left edge
+  Rectangle {
+    visible: !!card.mat && card.critical
+    z: 3
+    x: card.shapeX
+    y: card.notchH
+    width: Math.max(3, Math.round(island.s(4)))
+    height: Math.max(0, card.visibleH - card.notchH)
+    color: island.urgentColor
   }
 
   // The notch: same fill as the bubble, open to the bar above it.
@@ -299,7 +349,7 @@ Item {
             renderType: Text.NativeRendering
             font.family: island.fontFamily
             font.pixelSize: island.f(22)
-            color: card.ink
+            color: card.critical && card.mat ? island.urgentColor : card.ink
           }
         }
 
@@ -369,7 +419,7 @@ Item {
               font.family: island.fontFamily
               font.pixelSize: island.f(12)
               font.bold: btn.primary
-              color: btn.primary ? island.accentText : btn.modelData.deny ? island.urgentColor : island.fg
+              color: btn.primary ? island.accentText : btn.modelData.deny && !card.mat ? island.urgentColor : island.fg
             }
             MouseArea {
               id: btnMouse
