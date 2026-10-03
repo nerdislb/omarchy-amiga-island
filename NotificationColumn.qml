@@ -29,9 +29,27 @@ Item {
   property var service: null
 
   readonly property bool serving: !!island && island.columnNotes
-  readonly property bool fog: !!island && !!island.amigaOptions && island.amigaOptions.fog === "on"
+  // the fog look (Amiga Bar option), or a Lavur theme's bloom (material card.bloom):
+  // both use the gooey fog layer; the bloom adds scallops and a tide line
+  readonly property bool fogOpt: !!island && !!island.amigaOptions && island.amigaOptions.fog === "on"
   // theme material (edge "theme"): replaces workbench/bubble with the theme's card
-  readonly property var material: !fog && !!island ? island.material : null
+  readonly property var material: !fogOpt && !!island ? island.material : null
+  readonly property bool bloom: !!material && !!material.card && material.card.bloom === true
+  readonly property bool fog: fogOpt || bloom
+  readonly property var tide: bloom ? material.card.tide || null : null
+  readonly property color tideColor: tide ? (function() { var c = Qt.color(tide.color || "#000000"); return Qt.rgba(c.r, c.g, c.b, tide.alpha === undefined ? 0.5 : tide.alpha) })() : "transparent"
+  readonly property real tideW: tide ? tide.width || 2 : 0
+  // scallops along a blob's sides and foot (w × h), grown with `spread`
+  function scallopAt(i, n, w, h, spread) {
+    var per = 2 * h + w
+    var u = ((i + 0.5 + 0.3 * Math.sin(i * 12.9898)) / n) * per
+    var x, y
+    if (u < h) { x = 0; y = u }
+    else if ((u -= h) < w) { x = u; y = h }
+    else { u -= w; x = w; y = Math.max(0, h - u) }
+    var k = Math.abs(Math.sin(i * 78.233) * 43758.5453) % 1
+    return { x: x, y: y, r: (3 + 8 * k * k) * Math.max(0, Math.min(1, spread)) }
+  }
   readonly property bool bubble: !fog && !material && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
   readonly property bool topaz: !!island && island.setting("noteTopaz", true) !== false
   readonly property real cardW: island ? island.s(480) : 480
@@ -184,6 +202,16 @@ Item {
         layer.enabled: ghostLayer.visible
         layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: 48; autoPaddingEnabled: false }
       }
+      // bloom: the tide line – the same shapes a little larger, in the ink, under the fill
+      FogLayer {
+        visible: column.bloom
+        anchors.fill: parent
+        color: column.tideColor
+        blurMax: 24
+        threshold: 0.4
+        softness: 0.5
+        Item { id: rimShapes; anchors.fill: parent }
+      }
       FogLayer {
         anchors.fill: parent
         color: column.fogColor
@@ -250,6 +278,8 @@ Item {
           // layer does not repaint for a shape that is merely shown/hidden.
           Rectangle {
             id: blob
+            // reduced motion fades the row: the fog shapes fade with it
+            opacity: slot.fade
             x: column.fogMargin + (column.cardW - slot.blobW) / 2
             y: column.fogMargin + stack.y + slot.y + slot.fogGap
             width: slot.blobW
@@ -259,10 +289,59 @@ Item {
           }
           Rectangle {
             id: neck
+            opacity: slot.fade
             x: blob.x - column.island.s(14)
             y: 0
             width: slot.index === 0 && slot.presence > 0 ? slot.blobW + column.island.s(28) : 0
             height: column.fogMargin + stack.y + 1
+            color: "white"
+          }
+          // Bloom (Lavur): scallops on the blob, and blob, neck and scallops a
+          // little larger in the tide-line layer (moved into the layers below).
+          Item {
+            id: scallops
+            opacity: slot.fade
+            x: blob.x; y: blob.y; width: blob.width; height: blob.height
+            Repeater {
+              model: column.bloom ? 26 : 0
+              Rectangle {
+                required property int index
+                readonly property var p: column.scallopAt(index, 26, scallops.width, scallops.height, slot.spread)
+                x: p.x - p.r; y: p.y - p.r; width: 2 * p.r; height: 2 * p.r; radius: p.r
+                color: "white"
+              }
+            }
+          }
+          Item {
+            id: rimScallops
+            opacity: slot.fade
+            x: blob.x; y: blob.y; width: blob.width; height: blob.height
+            Repeater {
+              model: column.bloom ? 26 : 0
+              Rectangle {
+                required property int index
+                readonly property var p: column.scallopAt(index, 26, rimScallops.width, rimScallops.height, slot.spread)
+                readonly property real r: p.r > 0 ? p.r + column.tideW : 0
+                x: p.x - r; y: p.y - r; width: 2 * r; height: 2 * r; radius: r
+                color: "white"
+              }
+            }
+          }
+          Rectangle {
+            id: rimBlob
+            opacity: slot.fade
+            x: blob.x - column.tideW; y: blob.y
+            width: column.bloom && blob.width > 0 ? blob.width + 2 * column.tideW : 0
+            height: blob.height + column.tideW
+            radius: blob.radius + column.tideW
+            color: "white"
+          }
+          Rectangle {
+            id: rimNeck
+            opacity: slot.fade
+            x: neck.x - column.tideW; y: neck.y
+            width: column.bloom && neck.width > 0 ? neck.width + 2 * column.tideW : 0
+            height: neck.height
             color: "white"
           }
           // Residual fog where the card was, fading after it left.
@@ -421,6 +500,7 @@ Item {
             // The fog shapes live in the column's fog layers (they leave
             // with this row: it still owns them).
             blob.parent = fogShapes; neck.parent = fogShapes; ghost.parent = ghostLayer
+            scallops.parent = fogShapes; rimScallops.parent = rimShapes; rimBlob.parent = rimShapes; rimNeck.parent = rimShapes
             if (column.reduced) {
               presence = 1; spread = 1; arrived = true; fade = 0; ink = 1
               openness = open ? 1 : 0
