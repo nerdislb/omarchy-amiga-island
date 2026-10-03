@@ -65,7 +65,7 @@ assert.equal(ctx.defaultSettings.notifications, false);
   assert.match(col, /neck: slot\.index === 0/, 'only the first note flares up into the bar');
   assert.match(col, /FogLayer \{\n\s*visible: !column\.bloom\n/, 'the gooey layer only for the fog look');
   assert.match(col, /visible: !!slot\.matHalo && slot\.height > 0 && !column\.bloom/, 'a sheet brings its own halo');
-  for (const f of ['InkSheet.qml', 'shaders/gauss.frag.qsb', 'shaders/bloomcut.frag.qsb', 'shaders/restink.frag.qsb', 'shaders/wetink.frag.qsb'])
+  for (const f of ['InkSheet.qml', 'shaders/gauss.frag.qsb', 'shaders/bloomcut.frag.qsb', 'shaders/restink.frag.qsb', 'shaders/halo.frag.qsb', 'shaders/wetink.frag.qsb'])
     assert.ok(fs.existsSync(path.join(__dirname, '..', 'views', f)), f);
 }
 console.log('model tests ok');
