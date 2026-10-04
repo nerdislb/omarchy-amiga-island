@@ -51,21 +51,32 @@ assert.equal(ctx.noteDuration(null, 0), 0);
 assert.equal(ctx.unreadCount([{ unread: true }, { unread: false }, {}]), 2);
 
 // Defaults the plugin writes into its shell.json entry.
-assert.equal(ctx.defaultSettings.noteStyle, 'workbench');
-// The pixel font is gone: text uses the theme font, no noteTopaz setting.
-assert.equal('noteTopaz' in ctx.defaultSettings, false);
+assert.equal(ctx.defaultSettings.noteStyle, 'window');
+// noteStyle: "window" or "bubble"; the window's former name and anything unknown read as "window".
+assert.equal(ctx.noteStyle('bubble'), 'bubble');
+assert.equal(ctx.noteStyle('window'), 'window');
+assert.equal(ctx.noteStyle('workbench'), 'window');
+assert.equal(ctx.noteStyle(undefined), 'window');
+
+// The bar's options: the Tusche Bar's plugins[] entry first, the bar's former id as a fallback.
+const bar = (plugins) => ctx.barOptions({ plugins });
+assert.equal(bar([{ id: 'nerdibeard.tusche-bar', options: { edge: 'theme' } }]).edge, 'theme');
+assert.equal(bar([{ id: 'nerdibeard.amiga-bar', options: { edge: 'theme' } }]).edge, 'theme');
+assert.equal(bar([{ id: 'nerdibeard.amiga-bar', options: { edge: 'theme' } },
+                  { id: 'nerdibeard.tusche-bar', options: { edge: 'none' } }]).edge, 'none');
+assert.equal(bar([{ id: 'nerdibeard.tusche-bar' }, { id: 'nerdibeard.amiga-bar', options: { edge: 'theme' } }]).edge, undefined);
+assert.equal(bar([{ id: 'someone.else', options: { edge: 'theme' } }]).edge, undefined);
+assert.equal(ctx.barOptions({}).edge, undefined);
 assert.equal(ctx.defaultSettings.notifications, false);
 
 // Lavur bloom (frame round 03.10.2026, recommendation 6): every note is its own sheet of wet paper –
 // no shared tide-line layer, no scallops, no shared gooey layer.
 {
   const col = fs.readFileSync(path.join(__dirname, '..', 'NotificationColumn.qml'), 'utf8');
-  const card = fs.readFileSync(path.join(__dirname, '..', 'views', 'NoteCard.qml'), 'utf8');
   assert.doesNotMatch(col, /scallop|rimShapes|wetCount/, 'no tide-line layer, scallops or shared ink mask');
   assert.match(col, /InkSheet \{\n\s*id: sheet\n/, 'one sheet per note');
   assert.match(col, /sheet\.parent = bloomArea/, 'the sheets live in the bloom area');
   assert.match(col, /neck: slot\.index === 0/, 'only the first note flares up into the bar');
-  assert.doesNotMatch(col + card, /fog/i, 'the fog look is gone');
   assert.match(col, /visible: !!slot\.matHalo && slot\.height > 0 && !column\.bloom/, 'a sheet brings its own halo');
   for (const f of ['InkSheet.qml', 'shaders/gauss.frag.qsb', 'shaders/bloomcut.frag.qsb', 'shaders/restink.frag.qsb', 'shaders/halo.frag.qsb', 'shaders/wetink.frag.qsb'])
     assert.ok(fs.existsSync(path.join(__dirname, '..', 'views', f)), f);

@@ -13,7 +13,7 @@ import "sources"
 import "IslandModel.js" as Model
 import "bridge" as Bridge
 
-// Theme-native Amiga Island for Omarchy.
+// Tusche Island: a theme-native activity island for Omarchy.
 //
 // A keep-loaded panel plugin: the shell mounts it at startup and it draws its
 // own layer-shell strip across the top of one monitor. Only the island (and
@@ -28,7 +28,7 @@ Item {
 
   property var shell: null
   property var manifest: null
-  readonly property string pluginId: manifest && manifest.id ? manifest.id : "nerdibeard.amiga-island"
+  readonly property string pluginId: manifest && manifest.id ? manifest.id : "nerdibeard.tusche-island"
 
   // ------------------------------------------------------------------
   // Settings: this plugin's entry in ~/.config/omarchy/shell.json plugins[]
@@ -80,11 +80,14 @@ Item {
   }
   readonly property bool artworkTint: setting("visualizerColor", "accent") === "artwork"
   readonly property int mediaLingerMs: Math.max(0, Number(setting("mediaLingerSeconds", 30))) * 1000
+  // How notes look in the bar without a theme material: "window" or "bubble".
+  readonly property string noteStyle: Model.noteStyle(setting("noteStyle", "window"))
 
   property var disabledPlugins: []
-  // Options of the Amiga Bar plugin, if installed: its edge.
-  property var amigaOptions: ({})
-  // Theme material (Amiga Bar edge option "theme"; Tusche & Papier): the
+  // Options of the Tusche Bar plugin, if installed (Model.barOptions); the
+  // island follows its `edge` ("none" | "theme").
+  property var barOptions: ({})
+  // Theme material (the bar's edge option "theme"; Tusche & Papier): the
   // current theme's bar-material.json – notes and popups take its light and
   // shadow. Off for themes without the file.
   readonly property string themeDir: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme"
@@ -105,7 +108,7 @@ Item {
     onFileChanged: reload()
     onLoaded: materialFile.reload()
   }
-  readonly property var material: amigaOptions.edge === "theme" ? themeMaterial : null
+  readonly property var material: barOptions.edge === "theme" ? themeMaterial : null
   property bool configLoaded: false
 
   FileView {
@@ -115,7 +118,7 @@ Item {
     onLoaded: {
       var cfg = Model.parseConfig(text())
       root.settings = Model.entryFor(cfg, root.pluginId)
-      root.amigaOptions = Model.amigaBarOptions(cfg)
+      root.barOptions = Model.barOptions(cfg)
       root.disabledPlugins = Array.isArray(cfg.disabledPlugins) ? cfg.disabledPlugins : []
       root.configLoaded = true
     }
@@ -496,7 +499,7 @@ Item {
   // itself once that plugin has let go. Setting "notifications": false or
   // "osd": false, or disabling/removing this plugin, gives the job back.
   // ------------------------------------------------------------------
-  readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy/amiga-island"
+  readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy/tusche-island"
   readonly property bool wantsNotifications: setting("notifications", false) === true
   readonly property bool wantsOsd: setting("osd", false) === true
   readonly property bool omarchyNotificationsOff: disabledPlugins.indexOf("omarchy.notifications") !== -1
@@ -609,7 +612,7 @@ Item {
       return
     }
     var bind = "o.bind(\"" + keybind + "\", \"Toggle island reserved space\", " +
-               "\"omarchy-shell amiga-island reserveSpace toggle\")"
+               "\"omarchy-shell tusche-island reserveSpace toggle\")"
     var block = [
       "-- BEGIN " + pluginId,
       "-- Added by the " + pluginId + " plugin and removed with it. Change the key",
@@ -1276,7 +1279,7 @@ Item {
     })
   }
 
-  readonly property string demoCoverPath: Quickshell.env("HOME") + "/.local/state/omarchy/amiga-island/demo-cover.png"
+  readonly property string demoCoverPath: Quickshell.env("HOME") + "/.local/state/omarchy/tusche-island/demo-cover.png"
   property bool demoCoverReady: false
   Process {
     running: true
@@ -1344,7 +1347,7 @@ Item {
     } else if (kind === "stopwatch") {
       clocks.resetStopwatch(); clocks.toggleStopwatch()
     } else if (kind === "activity") {
-      activitySource.update("demo", { title: "Building nerdibeard.amiga-island", subtitle: "Compiling views · 14 of 22", icon: "󰏗", progress: 0.64, color: "green", ttl: 60 })
+      activitySource.update("demo", { title: "Building nerdibeard.tusche-island", subtitle: "Compiling views · 14 of 22", icon: "󰏗", progress: 0.64, color: "green", ttl: 60 })
     } else if (kind === "calendar") {
       calendarSource.demo()
     } else if (kind === "calendar-view") {
@@ -1356,7 +1359,7 @@ Item {
     } else if (kind === "outputs") {
       demo = { media: media }; mediaPosition = 71; openOutputs()
     } else if (kind === "toast") {
-      toast({ title: "Build finished", body: "nerdibeard.amiga-island · 0 errors", icon: "󰄬", color: "green" })
+      toast({ title: "Build finished", body: "nerdibeard.tusche-island · 0 errors", icon: "󰄬", color: "green" })
     } else {
       return "unknown demo: " + kind
     }
@@ -1405,7 +1408,7 @@ Item {
   }
 
   IpcHandler {
-    target: "amiga-island"
+    target: "tusche-island"
 
     function expand(): string { root.expand(); return "ok" }
     // on | off | toggle: keep a strip free for the island, or let windows
@@ -1436,13 +1439,18 @@ Item {
     }
     function show(payloadJson: string): string { root.open(payloadJson); return "ok" }
     function demo(kind: string): string { return root.runDemo(kind) }
-    // Notification look in the bar: noteStyle workbench|bubble,
-    // notifications true|false (take over Omarchy's popups).
+    // Notification look in the bar: noteStyle window|bubble (the former
+    // name "workbench" is stored as "window"), notifications true|false
+    // (take over Omarchy's popups).
     function set(key: string, value: string): string {
       var v = String(value || "")
-      if (key === "noteStyle" && (v === "workbench" || v === "bubble")) { root.saveSettings({ noteStyle: v }); return v }
+      if (key === "noteStyle" && (v === "window" || v === "bubble" || v === "workbench")) {
+        var style = Model.noteStyle(v)
+        root.saveSettings({ noteStyle: style })
+        return style
+      }
       if (key === "notifications" && (v === "true" || v === "false")) { root.saveSettings({ notifications: v === "true" }); return v }
-      return "usage: set noteStyle workbench|bubble · set notifications true|false"
+      return "usage: set noteStyle window|bubble · set notifications true|false"
     }
     // Sample notifications through the real queue (no sender behind them).
     function noteDemo(kind: string): string { return root.noteDemo(kind) }
@@ -1520,6 +1528,7 @@ Item {
         nextEvent: root.calendar.next ? root.calendar.next.title : null,
         attention: root.desktop.blocked.map(function(a) { return a.agent + ": " + (a.title || "") }),
         idle: { mode: root.idleMode, quiet: root.idleQuiet, signals: root.idleSignals.map(function(i) { return i.key }) },
+        bar: { edge: String(root.barOptions.edge || "none"), material: !!root.material },
         desktop: root.desktop.summary(),
         camera: root.cameraActive,
         outputs: root.audioOutputs.length,
@@ -1541,7 +1550,7 @@ Item {
           inbox: root.inbox.length,
           dnd: notifications.doNotDisturb,
           column: root.columnNotes,
-          style: String(root.setting("noteStyle", "workbench")),
+          style: root.noteStyle,
           current: root.noteCurrent ? root.noteCurrent.summary : null,
           waiting: notifications.waiting.map(function(e) { return e.summary }),
           line: root.noteLine ? root.noteLine.summary : null,
@@ -1577,7 +1586,7 @@ Item {
     implicitHeight: root.s(360) + root.topMargin
     color: "transparent"
 
-    WlrLayershell.namespace: "amiga-island"
+    WlrLayershell.namespace: "tusche-island"
     WlrLayershell.layer: root.setting("layer", "top") === "overlay" ? WlrLayer.Overlay : WlrLayer.Top
     // Keyboard only while the calendar's link field is up (typing and
     // Ctrl+V go straight in; Esc hands it back). Otherwise the island never

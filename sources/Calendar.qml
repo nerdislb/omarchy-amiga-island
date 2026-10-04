@@ -65,7 +65,7 @@ Item {
     return out
   }
 
-  readonly property string addedDir: Quickshell.env("HOME") + "/.config/omarchy/amiga-island"
+  readonly property string addedDir: Quickshell.env("HOME") + "/.config/omarchy/tusche-island"
   readonly property string addedPath: addedDir + "/calendars.json"
 
   function add(link) {

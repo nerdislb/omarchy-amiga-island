@@ -5,7 +5,7 @@ import qs.Ui as Ui
 
 // One notification in the column under the island.
 //
-// Workbench: a window head (close gadget, app name, state) over Omarchy's
+// Window: a window head (close gadget, app name, state) over Omarchy's
 // card body, in Omarchy's popup frame; the body rolls out like a blind.
 // Bubble: a speech bubble whose notch flows out of the bar edge; a strip
 // spreads from the notch, then the body rolls down.
@@ -13,7 +13,7 @@ import qs.Ui as Ui
 // the column draws the card as a sheet of wet paper; the text sits on it
 // and fades with `textIn`, with the material's rules (one brushed signal
 // stroke for a critical note, no red text).
-// Material (Amiga Bar edge "theme", Tusche & Papier): Omarchy's card in the
+// Material (the bar's edge "theme", Tusche & Papier): Omarchy's card in the
 // theme's frame with its light and shadow – a hard ink shadow (Papier) or a
 // halo (Tusche, Lavur) – soft controls, no title bar; a critical note keeps
 // text and frame in the theme's colours and carries one narrow signal
@@ -149,7 +149,7 @@ Item {
     clip: true
     opacity: card.bloom ? card.textIn : card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
 
-    // Workbench title bar: flat fill with a 1 px bevel.
+    // Window title bar: flat fill with a 1 px bevel.
     Rectangle {
       anchors.fill: parent
       visible: !card.soft
@@ -160,7 +160,7 @@ Item {
       Rectangle { x: parent.width - 1; width: 1; height: parent.height; color: card.bevelDark }
     }
 
-    // Close gadget (Workbench) / shield (requester).
+    // Close gadget (window) / shield (requester).
     Item {
       id: gadget
       width: card.soft ? 0 : island.s(26)

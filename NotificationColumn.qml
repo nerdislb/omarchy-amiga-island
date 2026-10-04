@@ -31,7 +31,7 @@ Item {
   property var service: null
 
   readonly property bool serving: !!island && island.columnNotes
-  // theme material (edge "theme"): replaces workbench/bubble with the theme's card;
+  // theme material (edge "theme"): replaces window/bubble with the theme's card;
   // a Lavur theme's material blooms (card.bloom), every note a sheet of its own
   readonly property var material: island ? island.material : null
   readonly property bool bloom: !!material && !!material.card && material.card.bloom === true
@@ -41,7 +41,7 @@ Item {
   // the bloom's paper: the colour the bar ends in (opaque)
   readonly property color paper: Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, 1)
   readonly property bool lightBar: 0.2126 * paper.r + 0.7152 * paper.g + 0.0722 * paper.b > 0.55
-  readonly property bool bubble: !material && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
+  readonly property bool bubble: !material && !!island && island.noteStyle === "bubble"
   readonly property real cardW: island ? island.s(480) : 480
   readonly property bool reduced: Style.reduceMotion
 
@@ -166,7 +166,7 @@ Item {
     implicitHeight: island ? island.s(560) : 560
     color: "transparent"
 
-    WlrLayershell.namespace: "amiga-island-notes"
+    WlrLayershell.namespace: "tusche-island-notes"
     WlrLayershell.layer: island && island.setting("layer", "top") === "overlay" ? WlrLayer.Overlay : WlrLayer.Top
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     // Below the bar (its exclusive zone), without reserving space of its own.

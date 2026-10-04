@@ -10,7 +10,7 @@ Item {
   id: clocks
 
   property var island: null
-  readonly property string statePath: Quickshell.env("HOME") + "/.local/state/omarchy/amiga-island/clocks.json"
+  readonly property string statePath: Quickshell.env("HOME") + "/.local/state/omarchy/tusche-island/clocks.json"
 
   property double now: Date.now()
 

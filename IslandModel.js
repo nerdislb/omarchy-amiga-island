@@ -669,8 +669,8 @@ var defaultSettings = {
   calendar: true,
   notifications: false,
   // How notifications look when the island serves them in the bar:
-  // "workbench" (window head + body) or "bubble" (speech bubble with a notch).
-  noteStyle: "workbench",
+  // "window" (window head + body) or "bubble" (speech bubble with a notch).
+  noteStyle: "window",
   inbox: true,
   osd: false,
   volume: false,
@@ -694,6 +694,12 @@ var defaultSettings = {
 function missingSettings(settings) {
   var s = settings || {}
   return Object.keys(defaultSettings).filter(function(k) { return !(k in s) })
+}
+
+// The noteStyle setting as the island uses it: "bubble" or "window". The
+// window's former name ("workbench") and anything unknown read as "window".
+function noteStyle(value) {
+  return String(value || "") === "bubble" ? "bubble" : "window"
 }
 
 // Hyprland's modifier mask for a key like "SUPER + ALT + I", and the key.
@@ -797,11 +803,16 @@ function shortLimit(label) {
   return l
 }
 
-// The Amiga Bar's options (its plugins[] entry): effects and font choice.
-function amigaBarOptions(cfg) {
+// The Tusche Bar's options (its plugins[] entry); the island follows its
+// `edge` ("none" | "theme"). The bar's former id still counts while no
+// entry has the new one (one release of grace).
+var barIds = ["nerdibeard.tusche-bar", "nerdibeard.amiga-bar"]
+
+function barOptions(cfg) {
   var list = cfg && Array.isArray(cfg.plugins) ? cfg.plugins : []
-  for (var i = 0; i < list.length; i++)
-    if (list[i] && list[i].id === "nerdibeard.amiga-bar" && list[i].options) return list[i].options
+  for (var b = 0; b < barIds.length; b++)
+    for (var i = 0; i < list.length; i++)
+      if (list[i] && list[i].id === barIds[b]) return list[i].options || {}
   return {}
 }
 

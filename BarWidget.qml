@@ -24,7 +24,7 @@ import "bridge" as Bridge
 //   left click    the inbox      right click   do not disturb
 BarWidget {
   id: root
-  moduleName: "nerdibeard.amiga-island"
+  moduleName: "nerdibeard.tusche-island"
 
   readonly property var island: Bridge.IslandBus.island
   readonly property bool live: island !== null && island.barMode

@@ -30,7 +30,7 @@ Item {
   property bool active: false
 
   readonly property string home: Quickshell.env("HOME")
-  readonly property string stateDir: home + "/.local/state/omarchy/amiga-island"
+  readonly property string stateDir: home + "/.local/state/omarchy/tusche-island"
   readonly property string settingsPath: home + "/.local/state/omarchy/notifications.json"
   readonly property string inboxPath: stateDir + "/inbox.json"
   readonly property int inboxLimit: 50

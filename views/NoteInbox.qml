@@ -3,7 +3,7 @@ import qs.Commons
 import "../IslandModel.js" as Model
 
 // The inbox when the island serves notifications in the bar (bell segment):
-// a Workbench head, Mark read / Clear all, the waiting notifications with
+// a bevelled head, Mark read / Clear all, the waiting notifications with
 // their app and unread mark, and an explicit do-not-disturb switch.
 // Click a row to open it, right click (or ×) to clear it.
 Item {
@@ -234,7 +234,7 @@ Item {
       font.pixelSize: island.f(12)
       color: island.fg
     }
-    // An inset track with a raised knob (Workbench), accent when on.
+    // An inset track with a raised knob, accent when on.
     Rectangle {
       id: track
       x: dndLabel.x + dndLabel.implicitWidth + island.s(14)
