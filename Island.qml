@@ -84,11 +84,9 @@ Item {
   property var disabledPlugins: []
   // Options of the Amiga Bar plugin, if installed: its edge.
   property var amigaOptions: ({})
-  // Fog look (Amiga Bar option `fog`): the colour the bar ends in, the
-  // bar's own (opaque).
   // Theme material (Amiga Bar edge option "theme"; Tusche & Papier): the
   // current theme's bar-material.json – notes and popups take its light and
-  // shadow. Off with the fog look, and for themes without the file.
+  // shadow. Off for themes without the file.
   readonly property string themeDir: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme"
   property var themeMaterial: null
   FileView {
@@ -107,11 +105,7 @@ Item {
     onFileChanged: reload()
     onLoaded: materialFile.reload()
   }
-  readonly property var material: amigaOptions.edge === "theme" && amigaOptions.fog !== "on" ? themeMaterial : null
-  readonly property color fogColor: {
-    var c = Color.bar.background
-    return Qt.rgba(c.r, c.g, c.b, 1)
-  }
+  readonly property var material: amigaOptions.edge === "theme" ? themeMaterial : null
   property bool configLoaded: false
 
   FileView {

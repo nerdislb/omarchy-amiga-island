@@ -15,15 +15,13 @@ import "bridge" as Bridge
 // the head slides out of the edge, then the body unrolls; back the same way.
 // Reduced motion: the same moments, faded instead of moved.
 //
-// Fog look (Amiga Bar option `fog`, a test): the cards are blobs of the
-// bar's colour in one gooey fog layer. A drop falls out of the bar, grows
-// into the card, then the text fades in; going back, the text fades, the
-// blob shrinks to a drop and is pulled back into the bar, leaving a faint
-// fog for a moment. Waiting rows hang under it as smaller blobs.
-// A Lavur theme's bloom (material card.bloom) grows the same way, but every
-// note is its own sheet of wet paper (views/InkSheet.qml): ink fills it, the
-// water clears it from the top, the pigment dries into a rim at its calm
-// edge; sheets never melt into each other (frame round 03.10.2026).
+// A Lavur theme's bloom (material card.bloom): a drop falls out of the bar,
+// grows into the card, then the text fades in; going back, the text fades,
+// the card shrinks to a drop and is pulled back into the bar, leaving a faint
+// residue for a moment. Every note is its own sheet of wet paper
+// (views/InkSheet.qml): ink fills it, the water clears it from the top, the
+// pigment dries into a rim at its calm edge; sheets never melt into each
+// other (frame round 03.10.2026). Waiting rows hang under it as smaller ones.
 //
 // Only the cards take input; the strip never takes keyboard focus.
 Item {
@@ -33,26 +31,24 @@ Item {
   property var service: null
 
   readonly property bool serving: !!island && island.columnNotes
-  // the fog look (Amiga Bar option), or a Lavur theme's bloom (material card.bloom):
-  // the fog's notes share one gooey layer, the bloom's are sheets of their own
-  readonly property bool fogOpt: !!island && !!island.amigaOptions && island.amigaOptions.fog === "on"
-  // theme material (edge "theme"): replaces workbench/bubble with the theme's card
-  readonly property var material: !fogOpt && !!island ? island.material : null
+  // theme material (edge "theme"): replaces workbench/bubble with the theme's card;
+  // a Lavur theme's material blooms (card.bloom), every note a sheet of its own
+  readonly property var material: island ? island.material : null
   readonly property bool bloom: !!material && !!material.card && material.card.bloom === true
-  readonly property bool fog: fogOpt || bloom
   // the bloom's pigment (tide colour) and its dried rim (card.rest)
   readonly property var tide: bloom ? material.card.tide || null : null
   readonly property var rest: bloom ? material.card.rest || null : null
-  readonly property bool lightBar: 0.2126 * fogColor.r + 0.7152 * fogColor.g + 0.0722 * fogColor.b > 0.55
-  readonly property bool bubble: !fog && !material && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
+  // the bloom's paper: the colour the bar ends in (opaque)
+  readonly property color paper: Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, 1)
+  readonly property bool lightBar: 0.2126 * paper.r + 0.7152 * paper.g + 0.0722 * paper.b > 0.55
+  readonly property bool bubble: !material && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
   readonly property real cardW: island ? island.s(480) : 480
   readonly property bool reduced: Style.reduceMotion
 
-  // Fog geometry: the layer reaches `fogMargin` past the cards on every
+  // Bloom geometry: the area reaches `bloomMargin` past the cards on every
   // side (and up into the bar), so the blur never runs into its edge.
-  readonly property color fogColor: island ? island.fogColor : Color.bar.background
-  readonly property real fogMargin: 32
-  readonly property real fogGap: island ? island.s(8) : 8
+  readonly property real bloomMargin: 32
+  readonly property real bloomGap: island ? island.s(8) : 8
   readonly property real dropW: island ? island.s(52) : 52
   readonly property real dropH: island ? island.s(28) : 28
 
@@ -179,14 +175,15 @@ Item {
 
     mask: Region { item: stack }
 
-    // Fog look: residual fog (blurred, faint) under the gooey blobs.
+    // Bloom: the notes' sheets (moved in below), over the faint residue
+    // (blurred) where a note has just left.
     Item {
-      id: fogArea
-      visible: column.fog
-      x: stack.x - column.fogMargin
-      y: -column.fogMargin
-      width: column.cardW + column.fogMargin * 2
-      height: win.height + column.fogMargin
+      id: bloomArea
+      visible: column.bloom
+      x: stack.x - column.bloomMargin
+      y: -column.bloomMargin
+      width: column.cardW + column.bloomMargin * 2
+      height: win.height + column.bloomMargin
 
       Item {
         id: ghostLayer
@@ -195,23 +192,13 @@ Item {
         layer.enabled: ghostLayer.visible
         layer.effect: MultiEffect { blurEnabled: true; blur: 1; blurMax: 48; autoPaddingEnabled: false }
       }
-      // the fog's notes in one gooey layer (the bloom's sheets are moved in after it)
-      FogLayer {
-        visible: !column.bloom
-        anchors.fill: parent
-        color: column.fogColor
-        blurMax: 24
-        threshold: 0.4
-        softness: 0.5
-        Item { id: fogShapes; anchors.fill: parent }
-      }
     }
 
     Column {
       id: stack
       readonly property real dpr: win.devicePixelRatio > 0 ? win.devicePixelRatio : 1
       x: Math.round(Math.max(0, Math.min(win.width - width, column.anchorX - width / 2)) * dpr) / dpr
-      y: column.fog ? 2 : 0
+      y: column.bloom ? 2 : 0
       width: column.cardW
       spacing: 0
 
@@ -242,7 +229,7 @@ Item {
           property real spread: 1
           property real fade: 1
           property bool arrived: false
-          // Fog look: the text, faded in once the blob has grown.
+          // Bloom: the text, faded in once the sheet has grown.
           property real ink: 1
           // Bloom (Lavur): ink fills the sheet, the water clears it from the
           // bar edge downwards and pushes the pigment into its edge, where it
@@ -265,44 +252,30 @@ Item {
             NumberAnimation { target: slot; property: "phase"; from: 0; to: 6.283; duration: 1600 }
           }
 
-          // Fog: a drop (dropW × dropH) grows into the row, then the body.
-          readonly property real fogGap: index > 0 ? column.fogGap : 0
+          // Bloom: a drop (dropW × dropH) grows into the row, then the body.
+          readonly property real bloomGap: index > 0 ? column.bloomGap : 0
           readonly property real blobW: column.dropW + (column.cardW - column.dropW) * spread
           readonly property real blobH: presence * column.dropH * (1 - spread) + note.rowH * spread
             + note.bodyH * Math.max(0, Math.min(1, openness))
 
           width: column.cardW
-          height: column.fog ? fogGap + blobH
+          height: column.bloom ? bloomGap + blobH
             : Math.max(0, note.visibleH - (1 - presence) * note.rowH)
           // The card is clipped by `cardClip` below (it slides out of the bar's
           // edge); the material's shadow and halo sit outside that clip.
 
-          // This row's blob, in the column's fog layer (moved there below);
-          // the first one also reaches up into the bar, where the fog layer
-          // melts it into the bar's edge. Shapes only change size: the fog
-          // layer does not repaint for a shape that is merely shown/hidden.
-          Rectangle {
+          // This row's bloom shape in the bloom area's coordinates (drawn by
+          // its sheet below; the residue takes it over when the row leaves).
+          Item {
             id: blob
-            // reduced motion fades the row: the fog shapes fade with it
-            opacity: slot.fade
-            x: column.fogMargin + (column.cardW - slot.blobW) / 2
-            y: column.fogMargin + stack.y + slot.y + slot.fogGap
+            visible: false
+            x: column.bloomMargin + (column.cardW - slot.blobW) / 2
+            y: column.bloomMargin + stack.y + slot.y + slot.bloomGap
             width: slot.blobW
             height: slot.blobH
-            radius: column.island.s(10)
-            color: "white"
-          }
-          Rectangle {
-            id: neck
-            opacity: slot.fade
-            x: blob.x - column.island.s(14)
-            y: 0
-            width: slot.index === 0 && slot.presence > 0 ? slot.blobW + column.island.s(28) : 0
-            height: column.fogMargin + stack.y + 1
-            color: "white"
           }
           // Bloom (Lavur): this note's own sheet of wet paper (moved into the
-          // fog area below) – the paper, the wet ink cleared from its top and
+          // bloom area below) – the paper, the wet ink cleared from its top and
           // the dried rim. Sized for the whole card (no layer is resized
           // while it grows); only the first one flares up into the bar.
           InkSheet {
@@ -310,7 +283,7 @@ Item {
             readonly property real pad: 40
             visible: column.bloom && slot.presence > 0
             opacity: slot.fade
-            x: column.fogMargin - pad
+            x: column.bloomMargin - pad
             y: blob.y - pad
             width: column.cardW + 2 * pad
             height: Math.max(column.dropH, note.rowH) + note.bodyH + 2 * pad
@@ -321,10 +294,10 @@ Item {
             radius: column.island.s(12)
             neck: slot.index === 0
             flare: column.island.s(14)
-            barY: column.fogMargin - y
+            barY: column.bloomMargin - y
             originX: pad
             originY: pad
-            paper: column.fogColor
+            paper: column.paper
             ink: column.tide ? Qt.color(column.tide.color || "#000000") : column.island.fg
             light: column.lightBar
             rest: column.rest
@@ -340,13 +313,13 @@ Item {
             jitter: 18
             seed: 3 + slot.index
           }
-          // Residual fog where the card was, fading after it left.
+          // A faint residue where the card was, fading after it left.
           Rectangle {
             id: ghost
-            visible: column.fog && opacity > 0
+            visible: column.bloom && opacity > 0
             opacity: 0
             radius: column.island.s(12)
-            color: column.fogColor
+            color: column.paper
           }
 
           // material (theme edge): the hard ink shadow (Papier) or the halo
@@ -391,14 +364,14 @@ Item {
 
             NoteCard {
               id: note
-              y: column.fog ? slot.fogGap : -(1 - slot.presence) * rowH
+              y: column.bloom ? slot.bloomGap : -(1 - slot.presence) * rowH
               width: parent.width
               island: column.island
               entry: slot.entry
               kind: slot.kind
               moreCount: column.hiddenCount
               bubble: column.bubble
-              fog: column.fog
+              bloom: column.bloom
               material: column.material
               textIn: slot.ink
               first: slot.index === 0
@@ -424,34 +397,34 @@ Item {
             }
           }
 
-          // Mechanical: constant speed, hard stop (Amiga screens), Omarchy's
-          // short durations. Reduced motion: final geometry, faded.
+          // Mechanical: constant speed, hard stop, Omarchy's short
+          // durations. Reduced motion: final geometry, faded.
           // The target is set here, not bound: a binding to `open` may not
           // have updated yet when onOpenChanged starts the animation.
           function run(anim) {
-            arrive.stop(); unroll.stop(); depart.stop(); arriveFog.stop(); departFog.stop()
+            arrive.stop(); unroll.stop(); depart.stop(); arriveBloom.stop(); departBloom.stop()
             if (anim === unroll) {
               unroll.to = open ? 1 : 0
               unroll.duration = open ? 220 : 180
-              // interrupted the fog arrival before its text faded in
-              if (column.fog) ink = 1
+              // interrupted the bloom's arrival before its text faded in
+              if (column.bloom) ink = 1
             }
             anim.start()
           }
-          // Fog: a drop, then it swells into the row (eased, liquid rather
+          // Bloom: a drop, then it swells into the row (eased, liquid rather
           // than mechanical), the body follows, the text fades in last.
           SequentialAnimation {
-            id: arriveFog
+            id: arriveBloom
             NumberAnimation { target: slot; property: "presence"; to: 1; duration: 190; easing.type: Easing.OutQuad }
             NumberAnimation { target: slot; property: "spread"; to: 1; duration: 280; easing.type: Easing.OutCubic }
             ScriptAction { script: { slot.arrived = true; if (slot.open) { unroll.to = 1; unroll.duration = 200; unroll.start() } } }
             PauseAnimation { duration: slot.open ? 180 : 0 }
             NumberAnimation { target: slot; property: "ink"; to: 1; duration: 140; easing.type: Easing.Linear }
           }
-          // Back: text first, then the blob shrinks to a drop (a faint fog
-          // stays where it was) and the drop is pulled into the bar.
+          // Back: text first, then the sheet shrinks to a drop (a faint
+          // residue stays where it was) and the drop is pulled into the bar.
           SequentialAnimation {
-            id: departFog
+            id: departBloom
             NumberAnimation { target: slot; property: "ink"; to: 0; duration: 110; easing.type: Easing.Linear }
             ScriptAction {
               script: {
@@ -493,18 +466,18 @@ Item {
           }
 
           Component.onCompleted: {
-            // The fog shapes live in the column's fog layers (they leave
-            // with this row: it still owns them).
-            blob.parent = fogShapes; neck.parent = fogShapes; ghost.parent = ghostLayer
-            sheet.parent = fogArea
+            // The residue and the sheet live in the column's bloom area (they
+            // leave with this row: it still owns them).
+            ghost.parent = ghostLayer
+            sheet.parent = bloomArea
             if (column.bloom && !column.reduced) { clearing = 0; wet = 1; phase = 0; wetting.start() }
             if (column.reduced) {
               presence = 1; spread = 1; arrived = true; fade = 0; ink = 1
               openness = open ? 1 : 0
               fadeIn.start()
-            } else if (column.fog) {
+            } else if (column.bloom) {
               spread = 0; ink = 0
-              run(arriveFog)
+              run(arriveBloom)
             } else {
               spread = column.bubble ? 0 : 1
               run(arrive)
@@ -520,7 +493,7 @@ Item {
               else { fadeOut.stop(); fade = 1 }
               return
             }
-            if (leaving) run(column.fog ? departFog : depart)
+            if (leaving) run(column.bloom ? departBloom : depart)
             else {
               // Back before it was gone: finish whatever its arrival left.
               presence = 1; spread = 1; arrived = true; ink = 1; ghost.opacity = 0

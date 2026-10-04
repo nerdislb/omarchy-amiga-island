@@ -427,8 +427,9 @@ BarWidget {
 
     focusTarget: keys
 
-    // Fog look (Amiga Bar option): the popup grows out of the bar as fog.
-    FogPanel { panel: popup; fog: !!root.island && root.island.amigaOptions.fog === "on"; color: root.island ? root.island.fogColor : "black"; material: root.island ? root.island.material : null }
+    // Theme material (the bar's edge "theme"): the popup takes the theme's
+    // card, rolls out of the bar or, on the Lavur themes, blooms out of it.
+    FogPanel { panel: popup; material: root.island ? root.island.material : null }
 
     // Esc closes (or first leaves the calendar's link field). Keys the
     // views do not take bubble up to here.

@@ -9,8 +9,10 @@ import qs.Ui as Ui
 // card body, in Omarchy's popup frame; the body rolls out like a blind.
 // Bubble: a speech bubble whose notch flows out of the bar edge; a strip
 // spreads from the notch, then the body rolls down.
-// Fog: no surface of its own — the column draws the card as a blob in its
-// fog layer; the text sits on it and fades with `textIn`.
+// Bloom (a Lavur theme's material, card.bloom): no surface of its own —
+// the column draws the card as a sheet of wet paper; the text sits on it
+// and fades with `textIn`, with the material's rules (one brushed signal
+// stroke for a critical note, no red text).
 // Material (Amiga Bar edge "theme", Tusche & Papier): Omarchy's card in the
 // theme's frame with its light and shadow – a hard ink shadow (Papier) or a
 // halo (Tusche, Lavur) – soft controls, no title bar; a critical note keeps
@@ -25,12 +27,10 @@ Item {
   property string kind: "note"          // note | more
   property int moreCount: 0
   property bool bubble: false
-  property bool fog: false
+  property bool bloom: false
   property var material: null           // theme material (bar-material.json) or null
-  readonly property var mat: !fog && !bubble && material && material.card ? material.card : null
-  // a Lavur bloom: the fog style with the material's rules (one signal stroke, no red text)
-  readonly property bool lavur: fog && !!material && !!material.card && material.card.bloom === true
-  property real textIn: 1               // fog: text opacity
+  readonly property var mat: !bloom && !bubble && material && material.card ? material.card : null
+  property real textIn: 1               // bloom: text opacity
   property bool first: false            // hangs from the island (bubble: notch)
   property bool active: false           // the open card, not a waiting row
   property string stateLabel: "now"     // now | next | paused
@@ -45,8 +45,8 @@ Item {
   signal action(string id)
 
   readonly property bool critical: !!(entry && entry.critical) && kind === "note"
-  // Bubble and fog share the soft controls (no gadget, rounded buttons).
-  readonly property bool soft: bubble || fog || !!mat
+  // Bubble, bloom and material share the soft controls (no gadget, rounded buttons).
+  readonly property bool soft: bubble || bloom || !!mat
   readonly property real frame: Math.max(1, island.s(2))
   readonly property real notchH: bubble && first ? island.s(11) : 0
   readonly property real headH: island.s(26)
@@ -56,7 +56,7 @@ Item {
   readonly property real fullH: rowH + bodyH
   readonly property real visibleH: rowH + bodyH * Math.max(0, Math.min(1, openness))
   // material: text stays in the theme's colours, the signal sits on the stripe and the symbol only
-  readonly property color ink: mat || lavur ? (critical ? island.fg : tone) : critical ? island.urgentColor : tone
+  readonly property color ink: mat || bloom ? (critical ? island.fg : tone) : critical ? island.urgentColor : tone
   readonly property color frameColor: critical && !mat ? island.urgentColor
     : active ? island.rim : Util.alpha(island.fg, 0.22)
 
@@ -80,7 +80,7 @@ Item {
   // ------------------------------------------------------------ surface
   Ui.BorderSurface {
     id: surface
-    visible: !card.fog
+    visible: !card.bloom
     x: card.shapeX
     y: card.notchH
     width: card.shapeW
@@ -93,14 +93,14 @@ Item {
   // Lavur bloom a brushed stroke inside the bloom that comes and goes with
   // the text (the bloom is still a drop before the text fades in)
   Rectangle {
-    visible: (!!card.mat || card.lavur) && card.critical
+    visible: (!!card.mat || card.bloom) && card.critical
     z: 3
-    x: card.lavur ? Math.round(island.s(9)) : card.shapeX
-    y: card.notchH + (card.lavur ? Math.round(island.s(12)) : 0)
+    x: card.bloom ? Math.round(island.s(9)) : card.shapeX
+    y: card.notchH + (card.bloom ? Math.round(island.s(12)) : 0)
     width: Math.max(3, Math.round(island.s(4)))
-    height: Math.max(0, card.visibleH - card.notchH - (card.lavur ? 2 * Math.round(island.s(12)) : 0))
-    radius: card.lavur ? width / 2 : 0
-    opacity: card.lavur ? card.textIn : 1
+    height: Math.max(0, card.visibleH - card.notchH - (card.bloom ? 2 * Math.round(island.s(12)) : 0))
+    radius: card.bloom ? width / 2 : 0
+    opacity: card.bloom ? card.textIn : 1
     color: island.urgentColor
   }
 
@@ -147,7 +147,7 @@ Item {
     width: card.shapeW - card.frame * 2
     height: card.headH
     clip: true
-    opacity: card.fog ? card.textIn : card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
+    opacity: card.bloom ? card.textIn : card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
 
     // Workbench title bar: flat fill with a 1 px bevel.
     Rectangle {
@@ -260,14 +260,6 @@ Item {
       }
     }
 
-    // Fog has no frame: a requester gets a thin urgent line instead (bloom: the stripe).
-    Rectangle {
-      visible: card.fog && card.critical && !card.lavur
-      x: island.s(12); y: parent.height - height
-      width: parent.width - island.s(24); height: Math.max(1, island.s(2))
-      color: island.urgentColor
-    }
-
     Text {
       id: stateText
       anchors.right: bubbleClose.left
@@ -290,7 +282,7 @@ Item {
     height: Math.max(0, card.visibleH - card.rowH)
     clip: true
     visible: card.kind === "note" && height > 0
-    opacity: card.fog ? card.textIn * Math.max(0, Math.min(1, (card.openness - 0.6) / 0.4))
+    opacity: card.bloom ? card.textIn * Math.max(0, Math.min(1, (card.openness - 0.6) / 0.4))
       : card.bubble ? Math.max(0, (card.spread - 0.7) / 0.3) : 1
 
     Column {
@@ -329,7 +321,7 @@ Item {
             renderType: Text.NativeRendering
             font.family: island.fontFamily
             font.pixelSize: island.f(22)
-            color: card.critical && (card.mat || card.lavur) ? island.urgentColor : card.ink
+            color: card.critical && (card.mat || card.bloom) ? island.urgentColor : card.ink
           }
         }
 
@@ -399,7 +391,7 @@ Item {
               font.family: island.fontFamily
               font.pixelSize: island.f(12)
               font.bold: btn.primary
-              color: btn.primary ? island.accentText : btn.modelData.deny && !card.mat && !card.lavur ? island.urgentColor : island.fg
+              color: btn.primary ? island.accentText : btn.modelData.deny && !card.mat && !card.bloom ? island.urgentColor : island.fg
             }
             MouseArea {
               id: btnMouse
