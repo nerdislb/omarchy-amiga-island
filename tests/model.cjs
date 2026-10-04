@@ -52,7 +52,8 @@ assert.equal(ctx.unreadCount([{ unread: true }, { unread: false }, {}]), 2);
 
 // Defaults the plugin writes into its shell.json entry.
 assert.equal(ctx.defaultSettings.noteStyle, 'workbench');
-assert.equal(ctx.defaultSettings.noteTopaz, true);
+// The pixel font is gone: text uses the theme font, no noteTopaz setting.
+assert.equal('noteTopaz' in ctx.defaultSettings, false);
 assert.equal(ctx.defaultSettings.notifications, false);
 
 // Lavur bloom (frame round 03.10.2026, recommendation 6): every note is its own sheet of wet paper –

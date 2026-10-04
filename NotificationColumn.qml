@@ -45,7 +45,6 @@ Item {
   readonly property var rest: bloom ? material.card.rest || null : null
   readonly property bool lightBar: 0.2126 * fogColor.r + 0.7152 * fogColor.g + 0.0722 * fogColor.b > 0.55
   readonly property bool bubble: !fog && !material && !!island && String(island.setting("noteStyle", "workbench")) === "bubble"
-  readonly property bool topaz: !!island && island.setting("noteTopaz", true) !== false
   readonly property real cardW: island ? island.s(480) : 480
   readonly property bool reduced: Style.reduceMotion
 
@@ -402,7 +401,6 @@ Item {
               fog: column.fog
               material: column.material
               textIn: slot.ink
-              topaz: column.topaz && !column.material
               first: slot.index === 0
               active: slot.open
               // A row that is going (dismissed, answered) keeps no label rather

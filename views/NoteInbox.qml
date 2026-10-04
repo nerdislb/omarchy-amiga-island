@@ -11,7 +11,6 @@ Item {
 
   property var island: null
   readonly property var items: island ? island.inbox : []
-  readonly property bool topaz: island ? island.setting("noteTopaz", true) !== false : true
   readonly property real headH: island.s(28)
   readonly property real toolH: island.s(34)
   readonly property real rowH: island.s(Model.noteInboxRow)
@@ -35,9 +34,9 @@ Item {
       text: "INBOX"
       textFormat: Text.PlainText
       renderType: Text.NativeRendering
-      font.family: view.topaz ? island.pixelFamily : island.fontFamily
-      font.pixelSize: view.topaz ? 16 : island.f(12)
-      font.bold: !view.topaz
+      font.family: island.fontFamily
+      font.pixelSize: island.f(12)
+      font.bold: true
       color: island.accentColor
     }
     Text {

@@ -84,8 +84,7 @@ Item {
     textFormat: Text.PlainText
     renderType: Text.NativeRendering
     font.family: art.fontFamily
-    // NerdWorkbench is only crisp on its 16 px grid
-    font.pixelSize: art.fontFamily.indexOf("NerdWorkbench") === 0 ? (art.height >= 48 ? 32 : 16) : Math.round(art.height * 0.5)
+    font.pixelSize: Math.round(art.height * 0.5)
     color: art.tint
   }
 }

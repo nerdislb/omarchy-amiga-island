@@ -671,8 +671,6 @@ var defaultSettings = {
   // How notifications look when the island serves them in the bar:
   // "workbench" (window head + body) or "bubble" (speech bubble with a notch).
   noteStyle: "workbench",
-  // Card heads (app name, INBOX, REQUEST) in the Topaz pixel font.
-  noteTopaz: true,
   inbox: true,
   osd: false,
   volume: false,

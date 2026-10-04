@@ -31,7 +31,6 @@ Item {
   // a Lavur bloom: the fog style with the material's rules (one signal stroke, no red text)
   readonly property bool lavur: fog && !!material && !!material.card && material.card.bloom === true
   property real textIn: 1               // fog: text opacity
-  property bool topaz: true
   property bool first: false            // hangs from the island (bubble: notch)
   property bool active: false           // the open card, not a waiting row
   property string stateLabel: "now"     // now | next | paused
@@ -213,9 +212,9 @@ Item {
         renderType: Text.NativeRendering
         elide: Text.ElideRight
         width: Math.min(implicitWidth, parent.width * 0.6)
-        font.family: card.topaz ? island.pixelFamily : island.fontFamily
-        font.pixelSize: card.topaz ? 16 : island.f(12)
-        font.bold: !card.topaz
+        font.family: island.fontFamily
+        font.pixelSize: island.f(12)
+        font.bold: true
         color: card.kind === "more" ? island.fgDim : card.active || card.critical ? card.ink : island.fgDim
       }
       // Waiting rows say what they hold after the app name.

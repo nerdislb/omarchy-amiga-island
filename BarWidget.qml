@@ -167,8 +167,8 @@ BarWidget {
     anchors.bottom: parent.bottom
     width: implicitWidth
     bar: root.bar
-    fontFamily: root.island && root.island.pixelFont ? root.island.pixelFamily : (bar ? bar.fontFamily : Style.font.family)
-    fontSize: root.island && root.island.pixelFont ? 16 : Style.font.body
+    fontFamily: bar ? bar.fontFamily : Style.font.family
+    fontSize: Style.font.body
     text: ""
     hasVisualContent: true
     horizontalMargin: 8.75
@@ -337,7 +337,7 @@ BarWidget {
     }
   }
 
-  // The bell segment: unread count (Topaz digits), do-not-disturb state.
+  // The bell segment: unread count, do-not-disturb state.
   WidgetButton {
     id: bell
     visible: root.bellShown
@@ -362,9 +362,8 @@ BarWidget {
 
     readonly property bool dnd: root.live && root.island.doNotDisturb
     readonly property int unread: root.live ? root.island.unreadCount : 0
-    readonly property bool topazDigits: root.live && root.island.setting("noteTopaz", true) !== false
 
-    // Workbench groove between the clock and the bell.
+    // A groove between the clock and the bell.
     Rectangle { x: 0; anchors.verticalCenter: parent.verticalCenter; width: 1; height: parent.height * 0.6; color: Qt.darker(Color.bar.background, 1.6) }
     Rectangle { x: 1; anchors.verticalCenter: parent.verticalCenter; width: 1; height: parent.height * 0.6; color: Util.alpha(button.foreground, 0.18) }
 
@@ -399,8 +398,8 @@ BarWidget {
         text: String(bell.unread)
         textFormat: Text.PlainText
         renderType: Text.NativeRendering
-        font.family: bell.topazDigits && root.island ? root.island.pixelFamily : button.fontFamily
-        font.pixelSize: bell.topazDigits ? 16 : button.fontSize
+        font.family: button.fontFamily
+        font.pixelSize: button.fontSize
         color: bell.dnd ? Util.alpha(button.foreground, 0.7) : (root.island ? root.island.accentColor : Color.accent)
       }
     }

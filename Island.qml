@@ -82,13 +82,8 @@ Item {
   readonly property int mediaLingerMs: Math.max(0, Number(setting("mediaLingerSeconds", 30))) * 1000
 
   property var disabledPlugins: []
-  // Options of the Amiga Bar plugin, if installed: its edge and font.
+  // Options of the Amiga Bar plugin, if installed: its edge.
   property var amigaOptions: ({})
-  // Amiga Bar font level: theme · topaz (Amiga moments: requester, Guru) ·
-  // bar/desktop (all island text and icons in NerdWorkbench on its 16 px grid).
-  readonly property string amigaFontLevel: String(amigaOptions.font || "theme")
-  readonly property bool amigaTopaz: amigaFontLevel !== "theme"
-  readonly property bool pixelFont: amigaFontLevel === "bar" || amigaFontLevel === "desktop"
   // Fog look (Amiga Bar option `fog`): the colour the bar ends in, the
   // bar's own (opaque).
   // Theme material (Amiga Bar edge option "theme"; Tusche & Papier): the
@@ -117,9 +112,6 @@ Item {
     var c = Color.bar.background
     return Qt.rgba(c.r, c.g, c.b, 1)
   }
-  FontLoader { id: pixelRegular; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Regular.ttf") }
-  FontLoader { id: pixelBold; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Bold.ttf") }
-  readonly property string pixelFamily: pixelRegular.status === FontLoader.Ready ? pixelRegular.name : "NerdWorkbench Mono"
   property bool configLoaded: false
 
   FileView {
@@ -168,20 +160,16 @@ Item {
   readonly property real corner: Math.min(Style.cornerRadius, Style.space(2))
   readonly property var frameSpec: Border.surfaceSpec("popups", "border", Color.popups.border, Math.max(1, Style.space(2)))
   readonly property color rim: Color.popups.border
-  // Prefer the theme's on-selection text; the current Amiga palette supplies it.
+  // Prefer the theme's on-selection text where the theme names one.
   readonly property color accentText: themeColors.selection_foreground || surface
   function bodyAt(t) { return surface }
-  // Numbers, time and icons in the theme's (Nerd) monospace; words in iA
-  // Writer Quattro, which Omarchy ships and which sits well beside a mono.
-  // "textFont": "theme" keeps everything in the theme font.
-  readonly property string fontFamily: pixelFont ? pixelFamily : Style.font.family
+  // Numbers, time and icons in the theme's (Nerd) monospace; words too,
+  // unless "textFont" names another family ("theme" keeps the theme font).
+  readonly property string fontFamily: Style.font.family
   readonly property string textFamily: {
-    if (pixelFont) return pixelFamily
     var t = String(setting("textFont", "theme"))
     return t === "theme" ? Style.font.family : t
   }
-  // Amiga moments (requester, Guru strip) use the pixel font from "topaz" up.
-  readonly property string momentFamily: amigaTopaz ? pixelFamily : fontFamily
 
   function s(px) { return Math.round(Style.space(px) * scaleFactor) }
 
@@ -194,11 +182,7 @@ Item {
   readonly property bool shapeSettled: Math.abs(stage.w - s(viewSize.w)) < s(18)
     && Math.abs(stage.h - s(viewSize.h)) < s(12)
   function showing(name) { return view === name && shapeSettled }
-  function f(px) {
-    var n = Math.max(6, Math.round(px * Style.fontScale * scaleFactor))
-    return pixelFont ? (n >= 24 ? 32 : 16) : n   // the pixel font is only crisp on its grid
-  }
-  function momentF(px) { return amigaTopaz ? 16 : f(px) }
+  function f(px) { return Math.max(6, Math.round(px * Style.fontScale * scaleFactor)) }
 
   // Nothing announces itself for the first moments after (re)load, so the
   // initial volume/brightness/battery reads do not pop HUDs.
@@ -1458,15 +1442,13 @@ Item {
     }
     function show(payloadJson: string): string { root.open(payloadJson); return "ok" }
     function demo(kind: string): string { return root.runDemo(kind) }
-    // Notification look in the bar: noteStyle workbench|bubble, noteTopaz
-    // true|false, notifications true|false (take over Omarchy's popups).
+    // Notification look in the bar: noteStyle workbench|bubble,
+    // notifications true|false (take over Omarchy's popups).
     function set(key: string, value: string): string {
       var v = String(value || "")
       if (key === "noteStyle" && (v === "workbench" || v === "bubble")) { root.saveSettings({ noteStyle: v }); return v }
-      if ((key === "noteTopaz" || key === "notifications") && (v === "true" || v === "false")) {
-        var o = {}; o[key] = v === "true"; root.saveSettings(o); return v
-      }
-      return "usage: set noteStyle workbench|bubble · set noteTopaz true|false · set notifications true|false"
+      if (key === "notifications" && (v === "true" || v === "false")) { root.saveSettings({ notifications: v === "true" }); return v }
+      return "usage: set noteStyle workbench|bubble · set notifications true|false"
     }
     // Sample notifications through the real queue (no sender behind them).
     function noteDemo(kind: string): string { return root.noteDemo(kind) }
@@ -1543,7 +1525,6 @@ Item {
         activity: root.activity ? root.activity.id : null,
         nextEvent: root.calendar.next ? root.calendar.next.title : null,
         attention: root.desktop.blocked.map(function(a) { return a.agent + ": " + (a.title || "") }),
-        amiga: { font: root.amigaFontLevel, pixel: root.pixelFont },
         idle: { mode: root.idleMode, quiet: root.idleQuiet, signals: root.idleSignals.map(function(i) { return i.key }) },
         desktop: root.desktop.summary(),
         camera: root.cameraActive,
@@ -1567,7 +1548,6 @@ Item {
           dnd: notifications.doNotDisturb,
           column: root.columnNotes,
           style: String(root.setting("noteStyle", "workbench")),
-          topaz: root.setting("noteTopaz", true) !== false,
           current: root.noteCurrent ? root.noteCurrent.summary : null,
           waiting: notifications.waiting.map(function(e) { return e.summary }),
           line: root.noteLine ? root.noteLine.summary : null,
