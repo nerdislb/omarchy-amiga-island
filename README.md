@@ -2,6 +2,40 @@
 
 Local theme-native adaptation of [Arjun010011/omarchy-dynamic-island](https://github.com/Arjun010011/omarchy-dynamic-island), based on commit `9d6e3f4e072a77b7b11086934b785b6d7f2518f7`. Original MIT license retained.
 
+The clock in the middle of the bar becomes an island. It grows a live segment for whatever is happening: agents, media, timers, meetings, AI limits, the phone. A click opens its popup, and notifications can run as a column under it. The island takes the theme's material, including the ink bloom and dried rim on the Tusche & Papier Lavur themes. It is the companion of the [Amiga Bar](https://github.com/nerdislb/omarchy-amiga-bar) and also works on its own.
+
+![The island in the bar (Tusche Lavur)](docs/screenshots/bar-tusche-lavur.png)
+![The island's popup with live activities](docs/screenshots/island-tusche-lavur.png)
+
+## Requirements
+
+- **Omarchy:** a recent version with the Quickshell shell (the dev line of early October 2026 or later).
+- **Tools:** `git`, `jq` and `rsync`.
+- **Optional:** OmaMail (calendar), Flux (phone) and Omarchy's agents. The island shows these sources only when they are there.
+
+## Install
+
+The easiest way is the whole look, which places the island in the clock's spot for you:
+
+```sh
+git clone https://github.com/nerdislb/omarchy-amiga-bar.git ~/src/omarchy-amiga-bar
+~/src/omarchy-amiga-bar/setup/install.sh
+```
+
+Only the island:
+
+```sh
+git clone https://github.com/nerdislb/omarchy-amiga-island.git ~/src/omarchy-amiga-island
+cd ~/src/omarchy-amiga-island && ./dev-install.sh
+omarchy-shell shell rescanPlugins
+omarchy plugin enable nerdibeard.amiga-island center --before omarchy.clock
+omarchy plugin disable omarchy.clock      # the island is the clock
+```
+
+**Update:** `git pull && ./dev-install.sh`, then `omarchy restart shell`.
+
+**Remove:** `omarchy plugin disable nerdibeard.amiga-island`, then `omarchy plugin enable omarchy.clock center`.
+
 ## Appearance
 
 - Flat Omarchy popup colors and native `BorderSurface` frame (including the theme border gradient).
@@ -69,7 +103,7 @@ Existing Omarchy notifications, OSD and keybindings are untouched by default. Co
 
 Notification takeover (see above) and the OSD takeover are **opt-in**. `style`, `background`, notch sizes and `glow` are not offered in this variant; it always uses its flat theme-native rectangular surface. Round recording dots and progress gauges remain semantic indicators, not decorative capsules.
 
-## Install / develop
+## Develop
 
 Run `OMARCHY_PATH=/path/to/omarchy ./dev-install.sh`, then `omarchy-shell shell rescanPlugins` and `omarchy plugin enable nerdibeard.amiga-island` in the desktop environment. The script installs only this plugin directory. Local edits are kept in this repository, separate from upstream updates.
 
