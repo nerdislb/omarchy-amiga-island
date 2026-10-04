@@ -87,3 +87,9 @@ omarchy-shell amiga-island timerCancel
 To disable only this panel: `omarchy plugin disable nerdibeard.amiga-island`. Do not restore an old whole `shell.json` over newer unrelated settings.
 
 See `UPSTREAM.md` for the original activity and scripting documentation; replace the original plugin ID and `dynamic-island` IPC target with the names above. Apple styling and takeover defaults described there do not apply to this local variant.
+
+## Licences and trademarks
+
+- **Code:** MIT (`LICENSE`), based on omarchy-dynamic-island by Arjun010011 and contributors.
+- **NerdWorkbench fonts** (copies from the Amiga Bar): SIL OFL 1.1 as a whole, text glyphs from Topaz Unicode (ISC), icon set credits in `assets/fonts/nerdworkbench/LICENSE-ICONS`.
+- **Trademarks:** Amiga-related names and logos (Amiga, the Boing ball) and the brand glyphs in the icon fonts belong to their owners. This is an independent fan project; no affiliation or endorsement is implied.
