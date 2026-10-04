@@ -3,13 +3,14 @@ import Quickshell
 import Quickshell.Io
 
 // Watches for things that really broke: failed systemd units (user and
-// system) and new core dumps. Each new one is announced once as a Guru
-// strip; a click on it opens the details in a terminal. Read-only.
+// system) and new core dumps. Each new one is announced once as an ordinary
+// notification (Island.announceFailure); a click on it opens the details in
+// a terminal. Read-only. "failures": false turns the watch off.
 Item {
   id: watch
 
   property var island: null
-  readonly property bool enabled_: island ? island.setting("guru", true) !== false : true
+  readonly property bool enabled_: island ? island.setting("failures", true) !== false : true
 
   property var initializedScopes: ({})
   property var knownUnits: null      // null until the first scan (no alarms for old failures)
@@ -27,10 +28,9 @@ Item {
       var key = scope + ":" + units[i]
       next[key] = true
       if (initializedScopes[scope] && !prev[key] && island)
-        island.showGuru({ kind: "unit", scope: scope, name: units[i],
-                          code: "#8000" + (scope === "user" ? "0004" : "0003") + "." + units[i].replace(/\.service$/, ""),
-                          command: scope === "user" ? "journalctl --user -u " + quote(units[i]) + " -n 80 --no-pager; echo; systemctl --user status " + quote(units[i]) + " --no-pager"
-                                                    : "journalctl -u " + quote(units[i]) + " -n 80 --no-pager; echo; systemctl status " + quote(units[i]) + " --no-pager" })
+        island.announceFailure({ kind: "unit", scope: scope, name: units[i],
+                                 command: scope === "user" ? "journalctl --user -u " + quote(units[i]) + " -n 80 --no-pager; echo; systemctl --user status " + quote(units[i]) + " --no-pager"
+                                                           : "journalctl -u " + quote(units[i]) + " -n 80 --no-pager; echo; systemctl status " + quote(units[i]) + " --no-pager" })
     }
     knownUnits = next
     var initialized = Object.assign({}, initializedScopes)
@@ -81,8 +81,8 @@ Item {
           s[key] = true
           watch.seenDumps = s
           var exe = String(d.exe || "").split("/").pop() || "?"
-          if (watch.island) watch.island.showGuru({ kind: "crash", name: exe, code: "#0000000" + (d.sig || 11) + "." + exe,
-                                                     command: "coredumpctl info " + quote(String(d.pid)) + " --no-pager | head -120" })
+          if (watch.island) watch.island.announceFailure({ kind: "crash", name: exe,
+                                                           command: "coredumpctl info " + quote(String(d.pid)) + " --no-pager | head -120" })
         }
       }
     }

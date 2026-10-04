@@ -82,17 +82,15 @@ Item {
   readonly property int mediaLingerMs: Math.max(0, Number(setting("mediaLingerSeconds", 30))) * 1000
 
   property var disabledPlugins: []
-  // Options of the Amiga Bar plugin, if installed: Amiga effects and font.
+  // Options of the Amiga Bar plugin, if installed: its edge and font.
   property var amigaOptions: ({})
-  readonly property bool amigaEffects: amigaOptions.effects === "amiga"
   // Amiga Bar font level: theme · topaz (Amiga moments: requester, Guru) ·
   // bar/desktop (all island text and icons in NerdWorkbench on its 16 px grid).
   readonly property string amigaFontLevel: String(amigaOptions.font || "theme")
   readonly property bool amigaTopaz: amigaFontLevel !== "theme"
   readonly property bool pixelFont: amigaFontLevel === "bar" || amigaFontLevel === "desktop"
-  // Fog look (Amiga Bar option `fog`): the colour the bar ends in — the
-  // bar's own (opaque: the A500 form makes the native bar transparent),
-  // or the darker front of the A500 case.
+  // Fog look (Amiga Bar option `fog`): the colour the bar ends in, the
+  // bar's own (opaque).
   // Theme material (Amiga Bar edge option "theme"; Tusche & Papier): the
   // current theme's bar-material.json – notes and popups take its light and
   // shadow. Off with the fog look, and for themes without the file.
@@ -117,48 +115,12 @@ Item {
   readonly property var material: amigaOptions.edge === "theme" && amigaOptions.fog !== "on" ? themeMaterial : null
   readonly property color fogColor: {
     var c = Color.bar.background
-    var opaque = Qt.rgba(c.r, c.g, c.b, 1)
-    return amigaOptions.form === "a500" ? Qt.darker(opaque, 1.35) : opaque
+    return Qt.rgba(c.r, c.g, c.b, 1)
   }
   FontLoader { id: pixelRegular; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Regular.ttf") }
   FontLoader { id: pixelBold; source: Qt.resolvedUrl("assets/fonts/nerdworkbench/NerdWorkbenchMono-Bold.ttf") }
   readonly property string pixelFamily: pixelRegular.status === FontLoader.Ready ? pixelRegular.name : "NerdWorkbench Mono"
   property bool configLoaded: false
-
-  // For the Amiga Bar's A500 form: where the island sits in each bar (the
-  // drive slot goes under it) and whether a note is coming out (DF0 lights).
-  // Written only while that form is on, and only when it changed.
-  readonly property bool publishBarSpan: amigaOptions.form === "a500"
-  property string lastBarSpan: ""
-  FileView {
-    id: barSpanFile
-    path: root.stateDir + "/bar-span.json"
-    atomicWrites: true
-    printErrors: false
-  }
-  Timer {
-    interval: 1000
-    running: root.publishBarSpan
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: {
-      var screens = {}
-      var list = Bridge.IslandBus.list
-      for (var i = 0; i < list.length; i++) {
-        var w = list[i]
-        if (!w || !w.screenName || typeof w.barSpan !== "function") continue
-        var span = w.barSpan()
-        if (span) screens[w.screenName] = span
-      }
-      // the note comes out on one monitor: the one the column hangs on
-      var note = !!notifications.current && root.columnNotes
-      var at = noteColumn.latchedScreen || noteColumn.targetScreen
-      var text = JSON.stringify({ screens: screens, note: note, noteScreen: note && at ? at.name : "" })
-      if (text === root.lastBarSpan) return
-      root.lastBarSpan = text
-      barSpanFile.setText(text + "\n")
-    }
-  }
 
   FileView {
     path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
@@ -765,12 +727,14 @@ Item {
   NotificationColumn { id: noteColumn; island: root; service: notifications }
 
   // An app's tone from the theme: mail blue, chats green, phone cyan,
-  // agents orange, updates yellow, else the accent; critical is urgent.
+  // agents orange, updates yellow, else the accent; critical and failures
+  // (announceFailure) are urgent.
   function noteTone(entry) {
     if (!entry) return accentColor
     if (entry.critical) return urgentColor
     var tc = themeColors || {}
     var app = String(entry.app || "") + " " + String(entry.desktopEntry || "")
+    if (/^(systemd|coredump)$/.test(String(entry.app || ""))) return urgentColor
     if (/mail|thunderbird|geary/i.test(app)) return tc.blue || tc.color4 || accentColor
     if (/whatsapp|signal|telegram|discord|slack|chat/i.test(app)) return greenColor
     if (/flux|phone|pixel|kdeconnect/i.test(app)) return tc.cyan || tc.color6 || accentColor
@@ -1151,21 +1115,22 @@ Item {
   readonly property bool attentionActivity: setting("attention", true) !== false && desktop.blocked.length > 0
   readonly property var attentionAgent: desktop.blocked.length > 0 ? desktop.blocked[0] : null
 
-  // DisplayBeep: the Amiga flashed the screen instead of beeping. The bar
-  // widget flashes the segment twice when this counter moves.
-  property int beepSerial: 0
-  function displayBeep() { beepSerial++ }
+  // A flash instead of a sound: the bar widget inverts the segment twice
+  // when this counter moves (an agent starts waiting for you).
+  property int flashSerial: 0
+  function flash() { flashSerial++ }
 
-  // Guru: a failed service or a crash, shown as a strip under the bar.
-  property var guru: null
-  function showGuru(payload) {
-    guru = payload
-    guruTimer.restart()
-    displayBeep()
+  // Something really broke (a failed systemd unit, a core dump): announced
+  // once as an ordinary notification, so it reaches the column (or Omarchy's
+  // toasts) and waits in the inbox; a click opens the details in a terminal.
+  function announceFailure(f) {
+    var crash = f.kind === "crash"
+    Quickshell.execDetached(["omarchy-notification-send", "--app-name", crash ? "coredump" : "systemd",
+      "-u", "normal", "-g", crash ? "\u{f00e4}" : "\u{f0026}",
+      crash ? "Program crashed" : "Service failed", f.name + (f.scope ? " (" + f.scope + ")" : ""),
+      "--exec", "xdg-terminal-exec", "--", "bash", "-lc", f.command + "; echo; read -n1 -p 'Press any key to close'"])
   }
-  Timer { id: guruTimer; interval: 9000; onTriggered: root.guru = null }
   Failures { island: root }
-  GuruStrip { island: root }
 
   readonly property var activityList: Model.activities({
     attention: attentionActivity,
@@ -1475,16 +1440,17 @@ Item {
     }
     function collapse(): string { root.collapse(); return "ok" }
     function toggle(): string { root.toggleExpanded(); return "ok" }
-    function beep(): void { root.displayBeep() }
-    function guruTest(name: string): void {
-      root.showGuru({ kind: "unit", scope: "user", name: name || "demo.service", code: "#80000004." + (name || "demo"),
-                      command: "echo 'Guru-Test: kein echter Ausfall.'" })
+    function flash(): void { root.flash() }
+    // A sample failure through the real path (a notification, no real outage).
+    function failureDemo(name: string): void {
+      root.announceFailure({ kind: "unit", scope: "user", name: name || "demo.service",
+                             command: "echo 'Failure demo: nothing really failed.'" })
     }
     function attentionDemo(on: string): void {
       root.desktop.demoBlocked = on === "on"
         ? [{ pane: "demo:1", agent: "Codex", status: "blocked", title: "git push origin feat/alpha46 freigeben?", project: "nbtiles", workspace: "demo" }]
         : []
-      if (on === "on") root.displayBeep()
+      if (on === "on") root.flash()
     }
     function toast(title: string, body: string, icon: string, color: string): string {
       root.toast({ title: title, body: body, icon: icon, color: color })
@@ -1577,8 +1543,7 @@ Item {
         activity: root.activity ? root.activity.id : null,
         nextEvent: root.calendar.next ? root.calendar.next.title : null,
         attention: root.desktop.blocked.map(function(a) { return a.agent + ": " + (a.title || "") }),
-        guru: root.guru,
-        amiga: { effects: root.amigaEffects, font: root.amigaFontLevel, pixel: root.pixelFont },
+        amiga: { font: root.amigaFontLevel, pixel: root.pixelFont },
         idle: { mode: root.idleMode, quiet: root.idleQuiet, signals: root.idleSignals.map(function(i) { return i.key }) },
         desktop: root.desktop.summary(),
         camera: root.cameraActive,

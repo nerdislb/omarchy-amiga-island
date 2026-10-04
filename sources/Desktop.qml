@@ -123,7 +123,7 @@ Item {
       var before = seen[a.pane]
       var since = before && before.status === a.status ? before.since : now
       next[a.pane] = { status: a.status, since: since, title: a.title || "", agent: a.agent || "" }
-      if (primed && a.status === "blocked" && (!before || before.status !== "blocked") && island) island.displayBeep()
+      if (primed && a.status === "blocked" && (!before || before.status !== "blocked") && island) island.flash()
       // A run that finished after a real stretch of work (not a flicker).
       if (primed && agentDoneEnabled && before && before.status === "working" && a.status === "idle"
           && now - before.since >= 20000 && island)

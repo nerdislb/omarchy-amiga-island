@@ -62,12 +62,6 @@ BarWidget {
     Qt.callLater(function() { root.popoutSwitchClosing = false })
   }
 
-  // The widget's span in the bar (x in the bar window = on screen).
-  function barSpan() {
-    var p = root.mapToItem(null, 0, 0)
-    return p ? { x: Math.round(p.x), w: Math.round(root.width) } : null
-  }
-
   // Where the notification column hangs (x in the bar window = on screen).
   function anchorX() {
     var p = button.mapToItem(null, button.width / 2, 0)
@@ -130,7 +124,7 @@ BarWidget {
     if (p === "attention" && island.attentionAgent) {
       var ag = island.attentionAgent, more = island.desktop.blocked.length - 1
       return { glyph: "\u{f0026}", text: (ag.agent || "Agent") + " waiting" + (more > 0 ? " +" + more : ""),
-               tone: island.orangeColor, progress: -1, guru: true }
+               tone: island.orangeColor, progress: -1 }
     }
     if (p === "recording")
       return { glyph: "󰑊", text: "REC " + Model.formatTime(island.recordingElapsed), tone: island.urgentColor, progress: -1 }
@@ -140,8 +134,6 @@ BarWidget {
       return { glyph: "󱎫", text: Model.formatClock(c.stopwatchElapsed / 1000, false), tone: island.accentColor, progress: -1 }
     if (p === "activity" && island.activity) {
       var a = island.activity
-      if (a.id === "agents" && island.amigaEffects)
-        return { glyph: "", text: a.title + (a.value ? " · " + a.value : ""), tone: island.toneFor(a.color), progress: a.progress, boing: true }
       return { glyph: a.icon, text: a.title + (a.value ? " · " + a.value : ""), tone: island.toneFor(a.color), progress: a.progress }
     }
     if (p === "media")
@@ -234,25 +226,16 @@ BarWidget {
         visible: width > 1
         clip: true
         radius: Math.min(Style.cornerRadius, Style.space(2))
-        readonly property bool guru: !!(seg && seg.guru)
-        color: flash ? (seg ? seg.tone : Color.accent) : guru ? "#000000" : Util.alpha(seg ? seg.tone : Color.accent, 0.16)
-        border.width: guru ? Math.max(1, Style.space(2)) : 0
-        border.color: guru && guruFrameOn ? (seg ? seg.tone : Color.accent) : "transparent"
+        color: flash ? (seg ? seg.tone : Color.accent) : Util.alpha(seg ? seg.tone : Color.accent, 0.16)
 
-        // Guru frame: blinks three times when it appears, then stays on.
-        property int blinks: 6
-        readonly property bool guruFrameOn: Style.reduceMotion || blinks >= 6 || blinks % 2 === 0
-        onGuruChanged: if (guru) { blinks = 0; guruBlink.restart() }
-        Timer { id: guruBlink; interval: 450; repeat: true; onTriggered: { chip.blinks++; if (chip.blinks >= 6) stop() } }
-
-        // DisplayBeep: two short inversions when the island asks for it.
+        // Flash: two short inversions when the island asks for it.
         property bool flash: false
         property int flashes: 0
         Connections {
           target: root.island
-          function onBeepSerialChanged() { if (!Style.reduceMotion) { chip.flashes = 0; beep.restart() } }
+          function onFlashSerialChanged() { if (!Style.reduceMotion) { chip.flashes = 0; flashTimer.restart() } }
         }
-        Timer { id: beep; interval: 110; repeat: true
+        Timer { id: flashTimer; interval: 110; repeat: true
           onTriggered: { chip.flash = !chip.flash; chip.flashes++; if (chip.flashes >= 4) { stop(); chip.flash = false } } }
 
         Behavior on width { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
@@ -265,23 +248,6 @@ BarWidget {
           spacing: Style.space(5)
           opacity: chip.showing ? 1 : 0
           Behavior on opacity { NumberAnimation { duration: Style.duration(120) } }
-
-          BoingBall {
-            visible: !!(chip.seg && chip.seg.boing)
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: Style.reduceMotion ? 0 : -bounce
-            size: Math.round(chip.height * 0.62)
-            property real bounce: 0
-            property real phase: 0
-            SequentialAnimation on bounce {
-              running: parent.visible && !Style.reduceMotion
-              loops: Animation.Infinite
-              NumberAnimation { from: 0; to: Style.space(3); duration: 380; easing.type: Easing.OutQuad }
-              NumberAnimation { from: Style.space(3); to: 0; duration: 380; easing.type: Easing.InQuad }
-            }
-            NumberAnimation on phase { running: parent.visible && !Style.reduceMotion; loops: Animation.Infinite; from: 0; to: 2; duration: 1200 }
-            spin: phase
-          }
 
           Text {
             visible: text !== ""
@@ -342,15 +308,6 @@ BarWidget {
           height: Math.max(1, Style.space(2))
           width: Math.round(parent.width * Math.max(0, p))
           color: chip.seg ? chip.seg.tone : Color.accent
-          // Amiga effects: the rule becomes a copper gradient in theme colours.
-          gradient: root.live && root.island.amigaEffects ? copper : null
-          Gradient {
-            id: copper
-            orientation: Gradient.Horizontal
-            GradientStop { position: 0.0; color: root.island ? root.island.orangeColor : Color.accent }
-            GradientStop { position: 0.5; color: root.island && root.island.themeColors.yellow ? root.island.themeColors.yellow : Color.accent }
-            GradientStop { position: 1.0; color: root.island && root.island.themeColors.cyan ? root.island.themeColors.cyan : Color.accent }
-          }
           Behavior on width { NumberAnimation { duration: Style.duration(240) } }
         }
       }
@@ -358,7 +315,8 @@ BarWidget {
   }
 
   // A card hangs from the island: a 2 px line in its tone along the bottom
-  // of the clock; it arrives as a short copper run (not with reduced motion).
+  // of the clock; it runs in from the left when a card comes (not with
+  // reduced motion).
   Item {
     id: toneLine
     readonly property var entry: root.live && root.island.columnNotes ? root.island.noteCurrent : null
@@ -372,21 +330,10 @@ BarWidget {
     onKeyChanged: if (key >= 0) { run = Style.reduceMotion ? 1 : 0; if (!Style.reduceMotion) runAnim.restart() }
     NumberAnimation { id: runAnim; target: toneLine; property: "run"; to: 1; duration: 380; easing.type: Easing.Linear }
     Rectangle {
-      width: parent.width
-      height: parent.height
-      color: root.island ? root.island.noteTone(toneLine.entry) : Color.accent
-      opacity: toneLine.run >= 1 ? 0.95 : 0
-    }
-    Rectangle {
-      visible: toneLine.run < 1
       width: parent.width * toneLine.run
       height: parent.height
-      gradient: Gradient {
-        orientation: Gradient.Horizontal
-        GradientStop { position: 0.0; color: root.island ? root.island.accentColor : Color.accent }
-        GradientStop { position: 0.6; color: root.island && root.island.themeColors.yellow ? root.island.themeColors.yellow : Color.accent }
-        GradientStop { position: 1.0; color: root.island ? root.island.noteTone(toneLine.entry) : Color.accent }
-      }
+      color: root.island ? root.island.noteTone(toneLine.entry) : Color.accent
+      opacity: 0.95
     }
   }
 
