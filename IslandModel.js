@@ -3,6 +3,22 @@
 // Pure helpers for the island. No QML types in here so the logic can be read
 // (and reasoned about) without the scene around it.
 
+// Use the desktop notification path: normal urgency opens a card and respects
+// DND. Keep agent-provided text and focus targets in literal argv, never a shell.
+function agentDoneCommand(agent) {
+  var a = agent || {}
+  var name = String(a.agent || "Agent")
+  var pane = String(a.pane || "")
+  var argv = ["omarchy-notification-send", "--app-name", name,
+              "-u", "normal", "-g", "󰄬", "Agent finished",
+              "Done · " + String(a.title || name)]
+  if (pane.indexOf("oc:") === 0)
+    return argv.concat(["--exec", "xdg-open", "http://127.0.0.1:18789/"])
+  if (pane)
+    return argv.concat(["--exec", "herdr", "agent", "focus", pane])
+  return argv
+}
+
 // Base geometry for each view, in unscaled pixels. The island springs between
 // these; `r` is the corner radius, which for the compact views is half the
 // height so the shape stays a true capsule.

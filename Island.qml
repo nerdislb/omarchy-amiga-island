@@ -1267,6 +1267,12 @@ Item {
     return n
   }
 
+  function announceAgentDone(agent) {
+    toast({ title: agent.title || agent.agent || "Agent", body: "Done · " + (agent.agent || "agent"),
+            icon: "󰄬", color: "green", duration: 5000 })
+    Quickshell.execDetached(Model.agentDoneCommand(agent))
+  }
+
   function toast(payload) {
     showHud({
       key: "toast",
@@ -1422,6 +1428,10 @@ Item {
     function collapse(): string { root.collapse(); return "ok" }
     function toggle(): string { root.toggleExpanded(); return "ok" }
     function flash(): void { root.flash() }
+    // Same notification path as a completion, with no real agent/focus action.
+    function agentDoneDemo(): void {
+      root.announceAgentDone({ agent: "Codex", title: "Preview · Agent completion popout" })
+    }
     // A sample failure through the real path (a notification, no real outage).
     function failureDemo(name: string): void {
       root.announceFailure({ kind: "unit", scope: "user", name: name || "demo.service",

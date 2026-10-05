@@ -8,6 +8,45 @@ vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'IslandModel.js'), 'utf8').replace('.pragma library', ''), ctx);
 const n = (key, extra = {}) => ({ key, time: key, critical: false, low: false, actions: [], timeout: 0, ...extra });
 
+// Completion cards are normal (DND-aware), with literal argv and click routing.
+const done = a => Array.from(ctx.agentDoneCommand(a));
+const trickyTitle = '--exec $(touch /tmp/not-executed) <b>preview</b>';
+const command = done({ agent: 'Claude', title: trickyTitle, pane: 'pane with spaces' });
+assert.equal(command[command.indexOf('-u') + 1], 'normal');
+assert.ok(command.includes('Done · ' + trickyTitle));
+assert.deepEqual(command.slice(-5), ['--exec', 'herdr', 'agent', 'focus', 'pane with spaces']);
+assert.deepEqual(done({ pane: 'oc:test' }).slice(-3), ['--exec', 'xdg-open', 'http://127.0.0.1:18789/']);
+assert.ok(!done({}).includes('--exec'), 'preview has no focus action');
+
+// Run the real source handler with a fake clock: no startup/short-run/repeat
+// notifications; one completion after a qualifying working → idle transition.
+{
+  const desktop = fs.readFileSync(path.join(__dirname, '..', 'sources', 'Desktop.qml'), 'utf8');
+  const handler = desktop.split('  onAgentsChanged: {')[1].split('\n  // Working agents')[0].trim().slice(0, -1);
+  let now = 100000;
+  const completions = [];
+  const state = { Date: { now: () => now }, agents: [], seen: {}, primed: false,
+    agentDoneEnabled: true, fluxState: { herdr: {} }, syncActivity() {},
+    island: { flash() {}, announceAgentDone(a) { completions.push(a); } } };
+  const step = (status, elapsed) => {
+    now += elapsed;
+    state.agents = [{ pane: 'test:1', agent: 'Codex', status }];
+    vm.runInNewContext(handler, state);
+  };
+  step('idle', 0);
+  step('working', 0);
+  step('idle', 1000);
+  assert.equal(completions.length, 0);
+  step('working', 0);
+  step('idle', 20000);
+  step('idle', 1000);
+  assert.equal(completions.length, 1);
+  state.agentDoneEnabled = false;
+  step('working', 0);
+  step('idle', 25000);
+  assert.equal(completions.length, 1);
+}
+
 // FIFO: the oldest normal one is open, the rest wait in arrival order.
 let q = ctx.noteQueue([n(3), n(1), n(2)]);
 assert.equal(q.current.key, 1);

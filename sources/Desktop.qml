@@ -127,8 +127,7 @@ Item {
       // A run that finished after a real stretch of work (not a flicker).
       if (primed && agentDoneEnabled && before && before.status === "working" && a.status === "idle"
           && now - before.since >= 20000 && island)
-        island.toast({ title: a.title || a.agent || "Agent", body: "Done · " + (a.agent || "agent"),
-                       icon: "󰄬", color: "green", duration: 5000 })
+        island.announceAgentDone(a)
     }
     seen = next
     if (fluxState.herdr) primed = true

@@ -67,6 +67,8 @@ In the bar, notifications roll out of the bar's bottom edge right under the isla
 
 **Failures.** A systemd unit (user or system) that fails, or a program that dumps core, is announced once as an ordinary notification in the urgent tone; a click opens the journal or the core dump details in a terminal. `failures: false` turns this off.
 
+**Agent completions.** A working → idle transition after at least 20 seconds of work shows both the bar announcement and a normal notification popout. It uses the existing themed column, queue, hover pause and DND policy, without taking keyboard focus. Click to focus the agent (OpenClaw agents open the local Control UI). `agentDone: false` disables both completion announcements. Short status flickers and the initial agent snapshot remain silent; idle means the agent stopped working, not that its result passed verification.
+
 ## Desktop integration
 
 The island shows what the rest of the desktop already knows instead of keeping its own copy. All links are **read-only**; nothing is written to or sent from them.
@@ -74,7 +76,7 @@ The island shows what the rest of the desktop already knows instead of keeping i
 | Source | Shown as | Setting |
 |---|---|---|
 | OmaMail calendar cache `~/.cache/omamail/calendar-bar.json` (iCloud/CalDAV, same as the bar clock) | next meeting, month view, "starting now" toast | `omamail` |
-| Flux daemon socket `$XDG_RUNTIME_DIR/flux/fluxd.sock` (`subscribe` only) | working herdr/OpenClaw agents as a live activity; "Done" toast after ≥20 s of work; an agent waiting for you | `flux`, `agents`, `agentDone`, `attention` |
+| Flux daemon socket `$XDG_RUNTIME_DIR/flux/fluxd.sock` (`subscribe` only) | working herdr/OpenClaw agents as a live activity; "Done" toast and notification popout after ≥20 s of work; an agent waiting for you | `flux`, `agents`, `agentDone`, `attention` |
 | Flux paired phone | battery in the opened island; one low-battery HUD per discharge | `phone` |
 | Omarchy agent usage `~/.local/state/omarchy/agents/usage/<id>.json` | HUD when a limit crosses 90 %, reaches 100 % or resets; tightest limit in the opened island | `aiLimits`, `aiProviders` |
 
@@ -120,7 +122,7 @@ Target `tusche-island`, e.g. `omarchy-shell tusche-island state`:
 - `activity <id> '<json>'`, `endActivity <id> [message]`, `activities` (live activities for scripts; see `UPSTREAM.md`)
 - `addCalendar <link>`, `removeCalendar <link>`, `addCalendarFromClipboard`, `refreshCalendar`
 - `reserveSpace on|off|toggle`, `state`, `ping`
-- Previews: `demo media|paused|recording|mic|split|expanded|volume|brightness|charging|lowbattery|track|notification|inbox|timer|stopwatch|activity|calendar|calendar-view|camera|device|outputs|toast|off`, `noteDemo mail|chat|phone|low|critical|actions|burst|story|many`, `attentionDemo on|off`, `failureDemo [unit]`, `flash`
+- Previews: `demo media|paused|recording|mic|split|expanded|volume|brightness|charging|lowbattery|track|notification|inbox|timer|stopwatch|activity|calendar|calendar-view|camera|device|outputs|toast|off`, `noteDemo mail|chat|phone|low|critical|actions|burst|story|many`, `attentionDemo on|off`, `agentDoneDemo`, `failureDemo [unit]`, `flash`
 
 ## Develop
 
