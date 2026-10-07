@@ -35,6 +35,8 @@ Item {
   // a Lavur theme's material blooms (card.bloom), every note a sheet of its own
   readonly property var material: island ? island.material : null
   readonly property bool bloom: !!material && !!material.card && material.card.bloom === true
+  // metal family (Chrom & Platin): every note framed by a chrome tube
+  readonly property var metal: material && material.metal ? material.metal : null
   // the bloom's pigment (tide colour) and its dried rim (card.rest)
   readonly property var tide: bloom ? material.card.tide || null : null
   readonly property var rest: bloom ? material.card.rest || null : null
@@ -354,6 +356,22 @@ Item {
               width: parent.width - 2 * haloBox.spread; height: parent.height - 2 * haloBox.spread
               color: slot.matHalo ? note.rgba(slot.matHalo.color, slot.matHalo.alpha) : "transparent"
             }
+          }
+
+          // metal family: a chrome rim around the visible part of the card,
+          // glinting once as the note comes out of the bar
+          MetalShape {
+            id: noteMetal
+            z: 2
+            visible: !!column.metal && slot.height > 1 && !column.bloom
+            spec: column.metal
+            pad: 3
+            x: -pad
+            y: -pad
+            width: slot.width + 2 * pad
+            height: slot.height + 2 * pad
+            opacity: slot.fade
+            onVisibleChanged: if (visible) play()
           }
 
           Item {

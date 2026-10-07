@@ -241,6 +241,20 @@ BarWidget {
         Behavior on width { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
         Behavior on color { ColorAnimation { duration: Style.duration(160) } }
 
+        // metal family (Chrom & Platin): a chrome rim around the segment, a
+        // glint along it whenever another segment takes its place
+        MetalShape {
+          id: chipMetal
+          readonly property var m: root.island && root.island.material && root.island.material.metal ? root.island.material.metal : null
+          visible: !!m && chip.showing
+          spec: m
+          anchors.fill: parent
+          pad: 0.5
+          tube: m ? Math.max(1.2, Number(m.rim || 1.4) - 0.2) : 1.4
+          radius: chip.radius
+        }
+        onSegChanged: chipMetal.play()
+
         Row {
           id: chipRow
           x: Style.space(6)
