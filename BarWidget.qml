@@ -242,7 +242,9 @@ BarWidget {
         Behavior on color { ColorAnimation { duration: Style.duration(160) } }
 
         // metal family (Chrom & Platin): a chrome rim around the segment, a
-        // glint along it whenever another segment takes its place
+        // glint along it when another kind of segment takes its place – keyed
+        // by its glyph, since timers, stopwatches and media rebuild the
+        // segment many times a second
         MetalShape {
           id: chipMetal
           readonly property var m: root.island && root.island.material && root.island.material.metal ? root.island.material.metal : null
@@ -253,7 +255,8 @@ BarWidget {
           tube: m ? Math.max(1.2, Number(m.rim || 1.4) - 0.2) : 1.4
           radius: chip.radius
         }
-        onSegChanged: chipMetal.play()
+        readonly property string segKey: seg ? String(seg.glyph || "") + (seg.ticker ? "|t" : "") + (seg.wide ? "|w" : "") : ""
+        onSegKeyChanged: if (segKey !== "") chipMetal.play()
 
         Row {
           id: chipRow
