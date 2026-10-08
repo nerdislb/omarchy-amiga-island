@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.Commons
+import qs.Commons as Commons
 import "views"
 import "IslandModel.js" as Model
 import "bridge" as Bridge
@@ -41,7 +42,7 @@ Item {
   readonly property var tide: bloom ? material.card.tide || null : null
   readonly property var rest: bloom ? material.card.rest || null : null
   // the bloom's paper: the colour the bar ends in (opaque)
-  readonly property color paper: Qt.rgba(Color.bar.background.r, Color.bar.background.g, Color.bar.background.b, 1)
+  readonly property color paper: Qt.rgba(Commons.Color.bar.background.r, Commons.Color.bar.background.g, Commons.Color.bar.background.b, 1)
   readonly property bool lightBar: 0.2126 * paper.r + 0.7152 * paper.g + 0.0722 * paper.b > 0.55
   readonly property bool bubble: !material && !!island && island.noteStyle === "bubble"
   readonly property real cardW: island ? island.s(480) : 480

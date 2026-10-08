@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import Quickshell.Hyprland
 import "views"
@@ -226,7 +227,7 @@ BarWidget {
         visible: width > 1
         clip: true
         radius: Math.min(Style.cornerRadius, Style.space(2))
-        color: flash ? (seg ? seg.tone : Color.accent) : Util.alpha(seg ? seg.tone : Color.accent, 0.16)
+        color: flash ? (seg ? seg.tone : Commons.Color.accent) : Util.alpha(seg ? seg.tone : Commons.Color.accent, 0.16)
 
         // Flash: two short inversions when the island asks for it.
         property bool flash: false
@@ -324,7 +325,7 @@ BarWidget {
           anchors.bottom: parent.bottom
           height: Math.max(1, Style.space(2))
           width: Math.round(parent.width * Math.max(0, p))
-          color: chip.seg ? chip.seg.tone : Color.accent
+          color: chip.seg ? chip.seg.tone : Commons.Color.accent
           Behavior on width { NumberAnimation { duration: Style.duration(240) } }
         }
       }
@@ -349,7 +350,7 @@ BarWidget {
     Rectangle {
       width: parent.width * toneLine.run
       height: parent.height
-      color: root.island ? root.island.noteTone(toneLine.entry) : Color.accent
+      color: root.island ? root.island.noteTone(toneLine.entry) : Commons.Color.accent
       opacity: 0.95
     }
   }
@@ -381,7 +382,7 @@ BarWidget {
     readonly property int unread: root.live ? root.island.unreadCount : 0
 
     // A groove between the clock and the bell.
-    Rectangle { x: 0; anchors.verticalCenter: parent.verticalCenter; width: 1; height: parent.height * 0.6; color: Qt.darker(Color.bar.background, 1.6) }
+    Rectangle { x: 0; anchors.verticalCenter: parent.verticalCenter; width: 1; height: parent.height * 0.6; color: Qt.darker(Commons.Color.bar.background, 1.6) }
     Rectangle { x: 1; anchors.verticalCenter: parent.verticalCenter; width: 1; height: parent.height * 0.6; color: Util.alpha(button.foreground, 0.18) }
 
     Row {
@@ -395,7 +396,7 @@ BarWidget {
         renderType: Text.NativeRendering
         font.family: button.fontFamily
         font.pixelSize: button.fontSize
-        color: bell.dnd ? (root.island ? root.island.accentColor : Color.accent)
+        color: bell.dnd ? (root.island ? root.island.accentColor : Commons.Color.accent)
           : bell.unread > 0 ? button.foreground : Util.alpha(button.foreground, 0.55)
       }
       Text {
@@ -407,7 +408,7 @@ BarWidget {
         font.family: button.fontFamily
         font.pixelSize: Math.round(button.fontSize * 0.8)
         font.bold: true
-        color: root.island ? root.island.accentColor : Color.accent
+        color: root.island ? root.island.accentColor : Commons.Color.accent
       }
       Text {
         visible: bell.unread > 0
@@ -417,7 +418,7 @@ BarWidget {
         renderType: Text.NativeRendering
         font.family: button.fontFamily
         font.pixelSize: button.fontSize
-        color: bell.dnd ? Util.alpha(button.foreground, 0.7) : (root.island ? root.island.accentColor : Color.accent)
+        color: bell.dnd ? Util.alpha(button.foreground, 0.7) : (root.island ? root.island.accentColor : Commons.Color.accent)
       }
     }
   }

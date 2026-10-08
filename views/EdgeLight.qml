@@ -1,10 +1,11 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 
 // Discrete status cells: no glow, soft edges or decorative glass gradients.
 Item {
   id: edge
-  property color tone: Color.accent
+  property color tone: Commons.Color.accent
   property real level: 0.3
   property real progress: -1
   property bool pulse: false

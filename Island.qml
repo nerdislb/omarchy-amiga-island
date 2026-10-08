@@ -7,6 +7,7 @@ import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui as Ui
 import "views"
 import "sources"
@@ -136,27 +137,27 @@ Item {
 
   FileView {
     id: themeColorsFile
-    path: Color.currentThemePath + "/colors.toml"
+    path: Commons.Color.currentThemePath + "/colors.toml"
     onLoaded: root.themeColors = Model.parseColors(text())
   }
 
   Connections {
-    target: Color
+    target: Commons.Color
     function onBackgroundChanged() { themeColorsFile.reload() }
     function onAccentChanged() { themeColorsFile.reload() }
   }
 
   // The same live palette and border renderer as Omarchy's popup cards.
-  readonly property color surface: Color.popups.background
-  readonly property color fg: Color.popups.text
+  readonly property color surface: Commons.Color.popups.background
+  readonly property color fg: Commons.Color.popups.text
   readonly property color fgDim: Util.alpha(fg, 0.65)
-  readonly property color accentColor: Color.accent
-  readonly property color urgentColor: Color.urgent
-  readonly property color greenColor: themeColors.green || themeColors.color2 || Color.accent
-  readonly property color orangeColor: themeColors.orange || themeColors.color3 || Color.accent
+  readonly property color accentColor: Commons.Color.accent
+  readonly property color urgentColor: Commons.Color.urgent
+  readonly property color greenColor: themeColors.green || themeColors.color2 || Commons.Color.accent
+  readonly property color orangeColor: themeColors.orange || themeColors.color3 || Commons.Color.accent
   readonly property real corner: Math.min(Style.cornerRadius, Style.space(2))
-  readonly property var frameSpec: Border.surfaceSpec("popups", "border", Color.popups.border, Math.max(1, Style.space(2)))
-  readonly property color rim: Color.popups.border
+  readonly property var frameSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Math.max(1, Style.space(2)))
+  readonly property color rim: Commons.Color.popups.border
   // Prefer the theme's on-selection text where the theme names one.
   readonly property color accentText: themeColors.selection_foreground || surface
   function bodyAt(t) { return surface }

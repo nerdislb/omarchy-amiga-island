@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Shapes
 import qs.Commons
+import qs.Commons as Commons
 
 // Rounded cover art with a tinted glyph standing in until (or unless) the
 // player provides an image.
@@ -12,7 +13,7 @@ Item {
   id: art
 
   property string source: ""
-  property color tint: Color.accent
+  property color tint: Commons.Color.accent
   property string fontFamily: Style.font.family
   property real radius: Math.min(Style.cornerRadius, Style.space(2))
   property string placeholder: "󰝚"

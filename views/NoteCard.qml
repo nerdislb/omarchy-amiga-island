@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Shapes
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui as Ui
 
 // One notification in the column under the island.
@@ -36,7 +37,7 @@ Item {
   property string stateLabel: "now"     // now | next | paused
   property real openness: 0
   property real spread: 1
-  property color tone: island ? island.accentColor : Color.accent
+  property color tone: island ? island.accentColor : Commons.Color.accent
 
   signal opened()
   signal dismissed()
