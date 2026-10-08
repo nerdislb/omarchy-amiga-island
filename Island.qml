@@ -107,7 +107,9 @@ Item {
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: materialFile.reload()
+    // the theme's green/orange too: Chrom and Tusche share background and
+    // accent, so the palette signals below would not fire between them
+    onLoaded: { materialFile.reload(); themeColorsFile.reload() }
   }
   readonly property var material: barOptions.edge === "theme" ? themeMaterial : null
   property bool configLoaded: false
